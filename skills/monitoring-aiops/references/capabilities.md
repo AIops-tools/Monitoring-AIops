@@ -1,0 +1,76 @@
+# monitoring-aiops capabilities
+
+> Preview / mock-only. **31 MCP tools** (23 read, 8 write) across SolarWinds
+> Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth) and Paessler PRTG (web
+> API, port 443/8080, API token). Each config target names its own `platform`.
+> SWIS/PRTG responses are mocked and need live verification.
+
+## SWQL — SolarWinds (read)
+
+| Tool | SWQL / path | Returns |
+|------|-------------|---------|
+| `swql_library` | (local) | the catalogue of canned queries: `nodes_down`, `flapping_interfaces`, `muted_report`, `high_cpu_nodes`, `volumes_full`, `unmanaged_scheduled` |
+| `swql_canned` | named SWQL → SWIS `/Query` | rows for the named canned query |
+| `swql_query` | validated read-only SWQL → SWIS `/Query` | rows for a caller SELECT (SELECT-only; rejected otherwise) |
+
+## Alerts — both platforms
+
+| Tool | Risk | Path | Returns / effect |
+|------|------|------|------------------|
+| `active_alerts` | read | SWIS `AlertActive`/`AlertObjects` or PRTG `/api/table.json?content=messages` | active alerts **deduped/rolled up by message** — flap/down storms collapse into one counted entry |
+| `alert_acknowledge` | write **low** | SW `AlertActive.Acknowledge` verb / PRTG `acknowledgealarm.htm` | acknowledges an alert / alarm |
+
+## SolarWinds health (read)
+
+| Tool | SWQL / path | Returns |
+|------|-------------|---------|
+| `node_status` | `Orion.Nodes` | one node's status, CPU/mem, response time |
+| `nodes_list` | `Orion.Nodes` | node inventory (status, vendor, IP, last boot) |
+| `interface_status` | `Orion.NPM.Interfaces` | top-N interfaces by utilisation (in/out, errors, oper status) |
+| `volume_status` | `Orion.Volumes` | volumes by % used (size, used, type) |
+| `application_status` | `Orion.APM.Application` (SAM) | SAM application/component status |
+| `topn` | `Orion.Nodes` metrics | top-N nodes by `cpu` / `memory` / `latency` / `packetloss` |
+| `noc_rollup` | folds `Orion.Nodes` | down/warning counts + worst-CPU nodes in one call |
+
+## SolarWinds writes
+
+| Tool | Risk | Path / verb | Undo / safety |
+|------|------|-------------|---------------|
+| `list_events` | read | `Orion.Events` | recent events (read) |
+| `list_unmanaged` | read | `Orion.Nodes` where Unmanaged | currently-unmanaged nodes (read) |
+| `list_muted` | read | `Orion.AlertSuppression` | currently-muted objects (read) |
+| `mute_alerts` | write **med** | `AlertSuppression` (SuppressAlerts) | **time-boxed** (requires end time); records inverse **unmute** undo |
+| `unmute_alerts` | write **med** | `AlertSuppression` (ResumeAlerts) | un-suppresses alerting |
+| `schedule_maintenance` | write **med** | `AlertSuppression` window | **requires an end time** (time-boxed maintenance window) |
+| `unmanage_node` | write **HIGH** | `Orion.Nodes.Unmanage` verb | `dry_run` + double-confirm; captures prior managed state; records inverse **remanage** undo |
+| `remanage_node` | write **med** | `Orion.Nodes.Remanage` verb | brings a node back under management |
+| `remove_node` | write **HIGH** | SWIS `DELETE` on the node URI | `dry_run` + double-confirm; no undo (deletion is not reversible) |
+
+## PRTG (read)
+
+| Tool | Path | Returns |
+|------|------|---------|
+| `prtg_sensors` | `/api/table.json?content=sensors` | sensors (status, last value, message) |
+| `prtg_sensor_details` | `/api/getsensordetails.json` | one sensor's detail (channels, uptime, last check) |
+| `prtg_devices` | `/api/table.json?content=devices` | devices (host, group, status) |
+| `prtg_groups` | `/api/table.json?content=groups` | probe/group tree with status rollups |
+| `prtg_history` | `/api/historicdata.json` | historic values for a sensor over a window |
+| `prtg_system_status` | `/api/status.json` | server/system status (also the PRTG `doctor` check) |
+| `prtg_alarms` | `/api/table.json?content=messages` (alarms) | active PRTG alarms |
+
+## PRTG writes
+
+| Tool | Risk | Path | Undo / safety |
+|------|------|------|---------------|
+| `pause_sensor` | write **med** | `/api/pause.htm?action=0` | records inverse **resume** undo |
+| `resume_sensor` | write **med** | `/api/pause.htm?action=1` | resumes a paused sensor |
+| `schedule_maintenance_prtg` | write **med** | `/api/pauseobjectfor.htm?duration=` | **time-boxed** (requires minutes) |
+
+## Out of scope (by design)
+
+- **Zabbix** and other monitoring stacks (only SolarWinds Orion + PRTG here)
+- Creating alerts / thresholds / SWQL-view CRUD, and node/interface **onboarding**
+- Anything outside monitoring (hypervisor, storage, backup, cluster, network
+  device config, OT/industrial) — route to the appropriate other AIops-tools skill
+
+Want one of these? Open an issue or PR — feedback and contributions welcome.

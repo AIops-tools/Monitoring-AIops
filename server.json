@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AIops-tools/monitoring-aiops",
+  "title": "Monitoring AIops",
+  "description": "Governed SolarWinds Orion + PRTG ops: canned SWQL, alert rollup, health, 31 tools.",
+  "repository": {
+    "url": "https://github.com/AIops-tools/Monitoring-AIops",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "monitoring-aiops",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
