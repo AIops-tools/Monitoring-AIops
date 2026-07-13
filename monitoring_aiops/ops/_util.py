@@ -3,7 +3,7 @@
 SolarWinds SWIS returns ``{"results": [...]}`` (unwrapped to rows by the
 connection's ``swql``); PRTG returns objects/arrays under keys like ``sensors``.
 ``rows`` / ``as_obj`` normalise access, and all server text reaches the caller
-only after ``sanitize()`` (prompt-injection defense).
+only after ``sanitize()`` (output hygiene: control/format-char stripping + truncation).
 """
 
 from __future__ import annotations

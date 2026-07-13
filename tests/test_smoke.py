@@ -53,10 +53,17 @@ def test_all_modules_import():
 
 
 @pytest.mark.unit
-def test_version():
+def test_version_matches_pyproject():
+    """__version__ is single-sourced from package metadata; it must track
+    pyproject.toml so a release bump can never ship a stale self-report."""
+    import tomllib
+    from pathlib import Path
+
     import monitoring_aiops
 
-    assert monitoring_aiops.__version__ == "0.1.0"
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    expected = tomllib.loads(pyproject.read_text("utf-8"))["project"]["version"]
+    assert monitoring_aiops.__version__ == expected
 
 
 @pytest.mark.unit
@@ -157,6 +164,34 @@ def test_connection_swql_and_platform_guard(monkeypatch):
     # PRTG-only method against a SolarWinds target must raise
     with pytest.raises(MonitoringApiError):
         conn.prtg_get("/api/status.json")
+
+
+@pytest.mark.unit
+def test_swis_invoke_url_encodes_path_segments(monkeypatch):
+    """An entity/verb containing '../' must never reach the URL path raw —
+    path segments are percent-encoded (query params are httpx's job)."""
+    from monitoring_aiops.config import TargetConfig
+    from monitoring_aiops.connection import MonitoringConnection
+
+    monkeypatch.setenv("MONITORING_SW1_SECRET", "pw")
+    target = TargetConfig(name="sw1", platform="solarwinds", host="orion.local",
+                          username="admin", verify_ssl=False)
+    calls = []
+
+    class _Client:
+        def request(self, method, path, **k):
+            calls.append((method, path))
+            return _Resp(200, {})
+
+        def close(self):
+            pass
+
+    conn = MonitoringConnection(target, client=_Client())
+    conn.swis_invoke("Orion.Nodes/../../evil", "Un manage")
+    _method, path = calls[0]
+    assert "../" not in path
+    assert "Orion.Nodes%2F..%2F..%2Fevil" in path
+    assert "Un%20manage" in path
 
 
 # ── flagship SWQL library + read-only validation ────────────────────────

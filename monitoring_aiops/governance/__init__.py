@@ -8,7 +8,8 @@ any external skill family — this package is its own copy of the harness:
     and undo-token recording.
   - unified SQLite audit log under ``~/.monitoring-aiops/`` (override with
     ``MONITORING_AIOPS_HOME``).
-  - ``sanitize`` — prompt-injection defense for API-returned text.
+  - ``sanitize`` — output hygiene (control/format-char stripping + truncation)
+    for API-returned text.
 
 State lives under ``ops_home()`` (default ``~/.monitoring-aiops``).
 """

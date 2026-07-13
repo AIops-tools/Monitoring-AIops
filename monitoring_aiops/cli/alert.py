@@ -12,6 +12,7 @@ from monitoring_aiops.cli._common import (
     TargetOption,
     cli_errors,
     console,
+    double_confirm,
     dry_run_print,
     get_connection,
 )
@@ -47,4 +48,5 @@ def alert_ack(
         dry_run_print(operation="acknowledge_alert", api_call="Acknowledge",
                       parameters={"alert_id": alert_id})
         return
+    double_confirm("acknowledge alert", alert_id)
     console.print_json(json.dumps(gov.alert_acknowledge(alert_id=alert_id, target=target)))

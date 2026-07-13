@@ -21,6 +21,7 @@ The httpx client is injectable for tests (``client=``); mock responses expose
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -34,6 +35,13 @@ from monitoring_aiops.config import (
 
 _TIMEOUT = 60.0
 _SWIS_BASE = "/SolarWinds/InformationService/v3/Json"
+
+
+def _seg(value: Any) -> str:
+    """URL-encode one path segment so an identifier can never smuggle
+    ``../`` / ``?`` / ``#`` into the request path (query params passed via
+    httpx ``params=`` are already encoded and must NOT go through this)."""
+    return quote(str(value), safe="")
 
 
 class MonitoringApiError(Exception):
@@ -125,7 +133,9 @@ class MonitoringConnection:
     def swis_invoke(self, entity: str, verb: str, args: list | None = None) -> Any:
         """Invoke a SWIS verb (e.g. Orion.Nodes.Unmanage) — governed writes."""
         self._require(PLATFORM_SOLARWINDS, verb)
-        return self._request("POST", f"{_SWIS_BASE}/Invoke/{entity}/{verb}", json=args or [])
+        return self._request(
+            "POST", f"{_SWIS_BASE}/Invoke/{_seg(entity)}/{_seg(verb)}", json=args or []
+        )
 
     # ── PRTG ─────────────────────────────────────────────────────────────
     def _prtg_params(self, params: dict | None) -> dict:

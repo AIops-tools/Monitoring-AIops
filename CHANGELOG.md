@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.2.0 — 2026-07-13
+
+Security-hardening release from a line-wide code review.
+
+### Changed (behavior)
+- **Secure by default**: with no `rules.yaml`, high/critical operations now require a
+  named approver (`MONITORING_AUDIT_APPROVED_BY`). A fresh install no longer allows
+  destructive writes unattended; `init` seeds a starter `rules.yaml` you can edit,
+  and an operator-authored rules file is honoured as-is.
+- `__version__` is now single-sourced from package metadata (the previous release
+  self-reported a stale version string).
+- Sanitize docs no longer overstate scope: it strips control/format characters and
+  truncates; semantic prompt-injection resistance must come from the consuming agent.
+
+### Fixed
+- `alert ack` CLI now double-confirms before acknowledging (line convention).
+- SWIS invoke paths percent-encode agent-supplied segments.
+- `init` TLS verification prompt now defaults to ON.
+
+### Tests
+- Governance persistence is now tested against REAL `audit.db`/`undo.db` files
+  (write → audit row + inverse undo row with captured prior state).
+- The CLI confirmed-write path (dry-run / double-confirm / governed execution) is
+  covered end-to-end.
+- `pytest-cov` added to the dev dependencies.
+
 ## v0.1.1
 
 - Fix: `MONITORING_AIOPS_HOME` now also relocates `config.yaml` (was hardcoded to `~/.monitoring-aiops`).
