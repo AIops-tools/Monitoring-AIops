@@ -41,11 +41,10 @@ def alert_ack(
     dry_run: DryRunOption = False,
 ) -> None:
     """Acknowledge one active alert."""
-    from monitoring_aiops.ops import alerts as ops
+    from mcp_server.tools import alerts as gov
 
     if dry_run:
         dry_run_print(operation="acknowledge_alert", api_call="Acknowledge",
                       parameters={"alert_id": alert_id})
         return
-    conn, _ = get_connection(target)
-    console.print_json(json.dumps(ops.acknowledge_alert(conn, alert_id)))
+    console.print_json(json.dumps(gov.alert_acknowledge(alert_id=alert_id, target=target)))
