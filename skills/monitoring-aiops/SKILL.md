@@ -121,6 +121,7 @@ scope.
 2. `schedule_maintenance <node> --end ...` (time-boxed) **or**
    `unmanage_node <node> --dry-run` → preview the call
 3. Re-run without `--dry-run` (double-confirm; set `MONITORING_AUDIT_APPROVED_BY`
+- **Secure by default (v0.2.0+)**: with no `~/.monitoring-aiops/rules.yaml`, high/critical operations are denied unless `MONITORING_AUDIT_APPROVED_BY` names an approver (set `MONITORING_AUDIT_RATIONALE` too). `monitoring-aiops init` seeds a starter rules.yaml; an operator-authored rules file is honoured as-is.
    + `MONITORING_AUDIT_RATIONALE` for the high-risk gate) — it records an inverse
    remanage undo descriptor
 4. When maintenance ends, `remanage_node <node>` (or replay the recorded undo)
