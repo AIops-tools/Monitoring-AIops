@@ -67,7 +67,7 @@ def run_doctor(skip_auth: bool = False) -> int:
         _console.print("[dim]Skipping connectivity check (--skip-auth).[/]")
         return 1 if problems else 0
 
-    from monitoring_aiops.config import PLATFORM_SOLARWINDS
+    from monitoring_aiops.config import PLATFORM_SOLARWINDS, PLATFORM_ZABBIX
     from monitoring_aiops.connection import ConnectionManager
 
     mgr = ConnectionManager(config)
@@ -77,6 +77,12 @@ def run_doctor(skip_auth: bool = False) -> int:
             if target.platform == PLATFORM_SOLARWINDS:
                 conn.swql("SELECT TOP 1 NodeID FROM Orion.Nodes")
                 detail = "SWIS/SWQL query OK"
+            elif target.platform == PLATFORM_ZABBIX:
+                # apiinfo.version needs NO auth — it proves reachability alone;
+                # a cheap authed call (host count) then proves the token works.
+                version = conn.zabbix_rpc("apiinfo.version")
+                conn.zabbix_rpc("host.get", {"countOutput": True})
+                detail = f"Zabbix API {version} OK (token valid)"
             else:
                 conn.prtg_get("/api/status.json")
                 detail = "PRTG API OK"

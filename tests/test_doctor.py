@@ -4,8 +4,10 @@ Everything runs against an ``isolated_home`` (see conftest) — no real
 ``~/.monitoring-aiops`` and no network: the connectivity check is exercised by
 patching ``ConnectionManager`` at the connection-module boundary.
 
-Monitoring specifics: two platforms per fleet — ``solarwinds`` targets are
-probed with a canned SWQL query, ``prtg`` targets with a status-API GET.
+Monitoring specifics: three platforms per fleet — ``solarwinds`` targets are
+probed with a canned SWQL query, ``prtg`` targets with a status-API GET, and
+``zabbix`` targets with the unauthenticated ``apiinfo.version`` (connectivity)
+followed by a cheap authed host count (token validity).
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ NOC1 = {
     "username": "admin",
 }
 PRTG1 = {"name": "prtg1", "platform": "prtg", "host": "prtg.example.com", "port": 443}
+ZBX1 = {"name": "zbx1", "platform": "zabbix", "host": "zabbix.example.com", "port": 443}
 
 
 # ─── broken-environment paths ───────────────────────────────────────────────
@@ -117,6 +120,7 @@ def test_healthy_skip_auth(isolated_home, doctor_out):
 class _FakeConn:
     def __init__(self, result: Any) -> None:
         self._result = result
+        self.zbx_methods: list[str] = []
 
     def swql(self, query: str, **_: Any) -> Any:
         assert "Orion.Nodes" in query
@@ -125,6 +129,13 @@ class _FakeConn:
     def prtg_get(self, path: str, **_: Any) -> Any:
         assert path == "/api/status.json"
         return self._result
+
+    def zabbix_rpc(self, method: str, params: Any = None) -> Any:
+        self.zbx_methods.append(method)
+        if method == "apiinfo.version":  # unauthenticated connectivity probe
+            return self._result
+        assert method == "host.get" and params == {"countOutput": True}  # authed probe
+        return "3"
 
 
 class _FakeMgr:
@@ -169,6 +180,17 @@ def test_healthy_prtg_end_to_end(isolated_home, doctor_out, fake_mgr):
     out = doctor_out.getvalue()
     assert "✓ Connected to 'prtg1' (prtg prtg.example.com)" in out
     assert "PRTG API OK" in out
+
+
+def test_healthy_zabbix_end_to_end(isolated_home, doctor_out, fake_mgr):
+    """Zabbix probe = apiinfo.version (no auth) THEN a cheap authed host count."""
+    _write_config(isolated_home, [ZBX1])
+    _seed_secret("zbx1", "api-token")
+    fake_mgr.results["zbx1"] = "7.0.0"
+    assert doc.run_doctor() == 0
+    out = doctor_out.getvalue()
+    assert "✓ Connected to 'zbx1' (zabbix zabbix.example.com)" in out
+    assert "Zabbix API 7.0.0 OK (token valid)" in out
 
 
 def test_connect_failure_is_status_not_crash(isolated_home, doctor_out, fake_mgr):

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from monitoring_aiops.config import PLATFORM_SOLARWINDS
+from monitoring_aiops.config import PLATFORM_SOLARWINDS, PLATFORM_ZABBIX
 from monitoring_aiops.ops._util import rows, s
 
 _SW_ACTIVE = (
@@ -33,7 +33,7 @@ def _dedup(items: list[dict], key: str) -> list[dict]:
 
 
 def active_alerts(conn: Any) -> dict:
-    """[READ] Active alerts with dedup/rollup by message. Works on SW and PRTG."""
+    """[READ] Active alerts with dedup/rollup by message (SW, PRTG, or Zabbix)."""
     platform = conn.target.platform
     try:
         if platform == PLATFORM_SOLARWINDS:
@@ -45,6 +45,20 @@ def active_alerts(conn: Any) -> dict:
                 "acknowledged": bool(r.get("Acknowledged")),
                 "triggeredAt": s(r.get("TriggeredDateTime")),
             } for r in raw]
+        elif platform == PLATFORM_ZABBIX:  # current problems are the active alerts
+            from monitoring_aiops.ops.zabbix import list_problems
+
+            problems = list_problems(conn)
+            if "error" in problems:
+                return {"error": problems["error"], "platform": platform}
+            norm = [{
+                "id": p["eventId"],
+                "entity": p["triggerId"],
+                "message": p["name"],
+                "acknowledged": p["acknowledged"],
+                "severity": p["severity"],
+                "level": p["level"],
+            } for p in problems["problems"]]
         else:  # PRTG — sensors in a non-up state are the active alarms
             data = conn.prtg_get("/api/table.json", {
                 "content": "sensors",
@@ -70,10 +84,18 @@ def active_alerts(conn: Any) -> dict:
 
 
 def acknowledge_alert(conn: Any, alert_id: str) -> dict:
-    """[WRITE][low] Acknowledge one active alert (SolarWinds or PRTG)."""
+    """[WRITE][low] Acknowledge one active alert (SolarWinds, PRTG, or Zabbix)."""
     platform = conn.target.platform
+    prior_state = None
     if platform == PLATFORM_SOLARWINDS:
         conn.swis_invoke("Orion.AlertActive", "Acknowledge", [[int(alert_id)], "acknowledged"])
+    elif platform == PLATFORM_ZABBIX:  # alert id = problem event id
+        from monitoring_aiops.ops.zabbix_write import acknowledge_event
+
+        prior_state = acknowledge_event(conn, alert_id).get("priorState")
     else:
         conn.prtg_post("/api/acknowledgealarm.htm", {"id": alert_id, "ackmsg": "acknowledged"})
-    return {"action": "acknowledge_alert", "platform": platform, "alertId": s(alert_id)}
+    out = {"action": "acknowledge_alert", "platform": platform, "alertId": s(alert_id)}
+    if prior_state is not None:
+        out["priorState"] = prior_state
+    return out

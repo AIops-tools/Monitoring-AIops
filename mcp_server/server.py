@@ -5,8 +5,8 @@ delegates to the ``monitoring_aiops`` ops package and is wrapped with the
 monitoring-aiops ``@governed_tool`` harness (audit / budget / undo / risk-tier).
 
 Standalone, self-governed network/infra monitoring operations (preview) over
-SolarWinds Orion (SWIS/SWQL) and Paessler PRTG: SWQL, alert rollup, health, and
-governed maintenance writes.
+SolarWinds Orion (SWIS/SWQL), Paessler PRTG, and Zabbix (JSON-RPC): SWQL, alert
+rollup, health, and governed maintenance writes.
 
 Source: https://github.com/AIops-tools/Monitoring-AIops
 License: MIT
@@ -25,6 +25,9 @@ from mcp_server.tools import (  # noqa: F401 — side effects
     sw_health,
     sw_write,
     swql,
+    undo,
+    zabbix,
+    zabbix_write,
 )
 
 __all__ = ["mcp", "main", "_safe_error", "tool_errors"]

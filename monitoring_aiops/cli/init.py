@@ -20,6 +20,8 @@ from monitoring_aiops.config import (
     DEFAULT_PORTS,
     PLATFORM_PRTG,
     PLATFORM_SOLARWINDS,
+    PLATFORM_ZABBIX,
+    PLATFORMS,
 )
 from monitoring_aiops.governance.paths import ops_path
 from monitoring_aiops.secretstore import SecretStore, resolve_master_password
@@ -82,9 +84,9 @@ def init_cmd() -> None:
     """Interactively set up your first Monitoring connection."""
     console.print("[bold cyan]Monitoring AIops — setup wizard[/]")
     console.print(
-        "This collects SolarWinds Orion or PRTG connection details (saved to "
-        "config.yaml) and your secret — the Orion password or PRTG API token — "
-        "(saved [bold]encrypted[/] to secrets.enc).\n"
+        "This collects SolarWinds Orion, PRTG, or Zabbix connection details "
+        "(saved to config.yaml) and your secret — the Orion password, PRTG API "
+        "token, or Zabbix API token — (saved [bold]encrypted[/] to secrets.enc).\n"
     )
 
     console.print("[bold]Step 1 — master password[/]")
@@ -107,11 +109,11 @@ def init_cmd() -> None:
             targets = [t for t in targets if t.get("name") != name]
 
         platform = typer.prompt(
-            f"Platform ({PLATFORM_SOLARWINDS} / {PLATFORM_PRTG})",
+            f"Platform ({PLATFORM_SOLARWINDS} / {PLATFORM_PRTG} / {PLATFORM_ZABBIX})",
             default=PLATFORM_SOLARWINDS,
         ).strip().lower()
-        if platform not in (PLATFORM_SOLARWINDS, PLATFORM_PRTG):
-            console.print("[red]Platform must be 'solarwinds' or 'prtg'.[/]")
+        if platform not in PLATFORMS:
+            console.print("[red]Platform must be 'solarwinds', 'prtg' or 'zabbix'.[/]")
             continue
 
         host = typer.prompt("Host (IP or FQDN)").strip()
@@ -124,8 +126,11 @@ def init_cmd() -> None:
             "Verify TLS certificate? (No for self-signed lab certs)", default=True
         )
 
-        prompt = ("Orion account password" if platform == PLATFORM_SOLARWINDS
-                  else "PRTG API token")
+        prompt = {
+            PLATFORM_SOLARWINDS: "Orion account password",
+            PLATFORM_PRTG: "PRTG API token",
+            PLATFORM_ZABBIX: "Zabbix API token",
+        }[platform]
         secret = getpass.getpass(f"{prompt} for '{name}' (hidden): ")
         store = store.set(name, secret)
 

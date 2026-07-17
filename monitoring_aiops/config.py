@@ -1,13 +1,14 @@
 """Configuration management for Monitoring AIops.
 
 Loads monitoring-platform connection targets from a YAML config file. Each target
-names its ``platform`` — ``solarwinds`` (Orion SWIS REST) or ``prtg`` (Paessler
-PRTG) — so one config can span both NOCs.
+names its ``platform`` — ``solarwinds`` (Orion SWIS REST), ``prtg`` (Paessler
+PRTG), or ``zabbix`` (Zabbix 6.x/7.x JSON-RPC) — so one config can span all NOCs.
 
 The secret is NEVER stored in the config file or in plaintext on disk: it lives
 in the encrypted store ``~/.monitoring-aiops/secrets.enc`` (see
 :mod:`monitoring_aiops.secretstore`). For SolarWinds the secret is the Orion
-account **password**; for PRTG it is an **API token** (or the account passhash).
+account **password**; for PRTG it is an **API token** (or the account passhash);
+for Zabbix it is an **API token** (Administration → API tokens).
 A legacy env var (``MONITORING_<TARGET>_SECRET``) is honoured as a fallback.
 """
 
@@ -29,10 +30,12 @@ ENV_FILE = CONFIG_DIR / ".env"
 
 PLATFORM_SOLARWINDS = "solarwinds"
 PLATFORM_PRTG = "prtg"
-PLATFORMS = (PLATFORM_SOLARWINDS, PLATFORM_PRTG)
+PLATFORM_ZABBIX = "zabbix"
+PLATFORMS = (PLATFORM_SOLARWINDS, PLATFORM_PRTG, PLATFORM_ZABBIX)
 
-# Sensible default ports per platform (SolarWinds SWIS REST / PRTG web server).
-DEFAULT_PORTS = {PLATFORM_SOLARWINDS: 17778, PLATFORM_PRTG: 443}
+# Sensible default ports per platform (SolarWinds SWIS REST / PRTG web server /
+# Zabbix frontend, which serves /api_jsonrpc.php).
+DEFAULT_PORTS = {PLATFORM_SOLARWINDS: 17778, PLATFORM_PRTG: 443, PLATFORM_ZABBIX: 443}
 
 SECRET_ENV_PREFIX = "MONITORING_"  # nosec B105 — env-var name, not a secret
 SECRET_ENV_SUFFIX = "_SECRET"  # nosec B105 — env-var name, not a secret
@@ -71,9 +74,10 @@ def _resolve_secret(name: str) -> str:
 class TargetConfig:
     """A connection target for one monitoring platform instance.
 
-    ``platform`` is ``solarwinds`` or ``prtg``. ``username`` (Orion account, or
-    the PRTG username) lives in the config file; the secret (Orion password /
-    PRTG API token) comes from the encrypted store.
+    ``platform`` is ``solarwinds``, ``prtg``, or ``zabbix``. ``username`` (Orion
+    account, or the PRTG username; unused for Zabbix token auth) lives in the
+    config file; the secret (Orion password / PRTG API token / Zabbix API token)
+    comes from the encrypted store.
     """
 
     name: str

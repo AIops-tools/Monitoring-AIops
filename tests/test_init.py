@@ -5,9 +5,9 @@ the master password comes from ``MONITORING_AIOPS_MASTER_PASSWORD`` and the
 hidden secret prompt is fed by patching ``getpass``. The trailing doctor run
 is either declined via stdin or patched out.
 
-Monitoring specifics: a platform prompt (solarwinds default / prtg), a
-per-platform port default (17778 / 443), and an Orion-username prompt that
-only appears for solarwinds targets.
+Monitoring specifics: a platform prompt (solarwinds default / prtg / zabbix),
+a per-platform port default (17778 / 443 / 443), and an Orion-username prompt
+that only appears for solarwinds targets.
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ NOC_SECRET = "orion-secret-123"  # noqa: S105 — test fixture value
 WIZARD_INPUT_SW = "noc1\n\norion.example.com\n\n\n\n\nn\n"
 # prtg: no username prompt; port default becomes 443.
 WIZARD_INPUT_PRTG = "prtg1\nprtg\nprtg.example.com\n\n\n\nn\n"
+# zabbix: no username prompt (API token auth); port default 443.
+WIZARD_INPUT_ZABBIX = "zbx1\nzabbix\nzabbix.example.com\n\n\n\nn\n"
 
 
 @pytest.fixture
@@ -87,9 +89,27 @@ def test_init_rejects_unknown_platform_then_recovers(isolated_home, hidden_secre
     bad_then_good = "noc1\nnagios\nnoc1\nprtg\nprtg.example.com\n\n\n\nn\n"
     result = runner.invoke(app, ["init"], input=bad_then_good)
     assert result.exit_code == 0, result.output
-    assert "Platform must be 'solarwinds' or 'prtg'." in result.output
+    assert "Platform must be 'solarwinds', 'prtg' or 'zabbix'." in result.output
     raw = yaml.safe_load((isolated_home / "config.yaml").read_text("utf-8"))
     assert raw["targets"][0]["platform"] == "prtg"
+
+
+def test_init_zabbix_skips_username_and_defaults_port(isolated_home, hidden_secret):
+    result = runner.invoke(app, ["init"], input=WIZARD_INPUT_ZABBIX)
+    assert result.exit_code == 0, result.output
+    assert "Zabbix API token" not in result.output  # getpass is patched (hidden)
+    raw = yaml.safe_load((isolated_home / "config.yaml").read_text("utf-8"))
+    assert raw["targets"] == [
+        {
+            "name": "zbx1",
+            "platform": "zabbix",
+            "host": "zabbix.example.com",
+            "port": 443,
+            "username": "",
+            "verify_ssl": True,
+        }
+    ]
+    assert ss.SecretStore.unlock(MASTER_PW).get("zbx1") == NOC_SECRET
 
 
 def test_init_seeds_default_policy_rules(isolated_home, hidden_secret):

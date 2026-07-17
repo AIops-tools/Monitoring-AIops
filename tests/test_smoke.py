@@ -32,6 +32,11 @@ EXPECTED_TOOLS = {
     "prtg_history", "prtg_system_status", "prtg_alarms",
     # prtg_write
     "pause_sensor", "resume_sensor", "schedule_maintenance_prtg",
+    # zabbix
+    "zabbix_problems", "zabbix_hosts", "zabbix_hostgroups", "zabbix_triggers",
+    "zabbix_events", "zabbix_item_history", "zabbix_maintenances",
+    # zabbix_write
+    "zabbix_create_maintenance", "zabbix_delete_maintenance",
 }
 
 
@@ -42,12 +47,14 @@ def test_all_modules_import():
         "monitoring_aiops.doctor", "monitoring_aiops.secretstore",
         "monitoring_aiops.ops.swql", "monitoring_aiops.ops.alerts",
         "monitoring_aiops.ops.overview",
+        "monitoring_aiops.ops.zabbix", "monitoring_aiops.ops.zabbix_write",
         "monitoring_aiops.cli", "monitoring_aiops.cli._root", "monitoring_aiops.cli._common",
         "monitoring_aiops.cli.init", "monitoring_aiops.cli.secret", "monitoring_aiops.cli.swql",
         "monitoring_aiops.cli.alert", "monitoring_aiops.cli.overview",
         "monitoring_aiops.cli.doctor",
         "mcp_server.server", "mcp_server._shared",
         "mcp_server.tools.swql", "mcp_server.tools.alerts",
+        "mcp_server.tools.zabbix", "mcp_server.tools.zabbix_write",
     ):
         importlib.import_module(name)
 
@@ -127,6 +134,8 @@ def test_config_rejects_bad_platform_and_defaults_port():
     assert sw.port == 17778
     prtg = TargetConfig(name="p", platform="prtg", host="h")
     assert prtg.port == 443
+    zbx = TargetConfig(name="z", platform="zabbix", host="h")
+    assert zbx.port == 443
 
 
 # ── connection: SWQL passthrough + platform guard ───────────────────────

@@ -1,4 +1,4 @@
-"""Connection management for SolarWinds Orion (SWIS) and Paessler PRTG.
+"""Connection management for SolarWinds Orion (SWIS), Paessler PRTG, and Zabbix.
 
 One :class:`MonitoringConnection` speaks the protocol of its target's platform:
 
@@ -9,10 +9,15 @@ One :class:`MonitoringConnection` speaks the protocol of its target's platform:
   * **PRTG** — the PRTG web API. ``prtg_get`` / ``prtg_post`` hit ``/api/...``
     with the API token appended as ``apitoken`` (so it never lands in a log line
     the way a URL-embedded passhash would be more likely to).
+  * **Zabbix** — JSON-RPC 2.0 at the single ``/api_jsonrpc.php`` endpoint.
+    ``zabbix_rpc(method, params)`` posts the standard envelope with the API
+    token as a ``Authorization: Bearer`` header (6.4+/7.x); on a 6.0 server
+    that rejects Bearer, one retry falls back to the legacy ``auth`` body
+    field. ``apiinfo.version`` is sent unauthenticated (Zabbix requires that).
 
 Platform-specific methods guard on ``platform`` and raise a clear
 ``MonitoringApiError`` if called against the wrong platform, so a SolarWinds-only
-tool can't silently misfire at a PRTG target.
+tool can't silently misfire at a PRTG or Zabbix target.
 
 The httpx client is injectable for tests (``client=``); mock responses expose
 ``status_code``, ``content``, ``text``, and ``json()``.
@@ -28,6 +33,7 @@ import httpx
 from monitoring_aiops.config import (
     PLATFORM_PRTG,
     PLATFORM_SOLARWINDS,
+    PLATFORM_ZABBIX,
     AppConfig,
     TargetConfig,
     load_config,
@@ -35,6 +41,9 @@ from monitoring_aiops.config import (
 
 _TIMEOUT = 60.0
 _SWIS_BASE = "/SolarWinds/InformationService/v3/Json"
+_ZABBIX_RPC = "/api_jsonrpc.php"
+# Zabbix methods that must be called WITHOUT auth (the server rejects a token).
+_ZABBIX_NO_AUTH = frozenset({"apiinfo.version"})
 
 
 def _seg(value: Any) -> str:
@@ -58,8 +67,8 @@ def _teaching_message(status: int, path: str, body: str, platform: str) -> str:
     if status in (401, 403):
         return (
             f"Authentication failed ({status}) on {platform} {path}. Check the "
-            f"credentials (SolarWinds Orion account / PRTG API token) and the "
-            f"account's role. {snippet}"
+            f"credentials (SolarWinds Orion account / PRTG API token / Zabbix "
+            f"API token) and the account's role. {snippet}"
         )
     if status == 404:
         return f"Not found (404) on {platform} {path}. Check the id/name. {snippet}"
@@ -77,10 +86,12 @@ def _teaching_message(status: int, path: str, body: str, platform: str) -> str:
 
 
 class MonitoringConnection:
-    """A session against one SolarWinds or PRTG target."""
+    """A session against one SolarWinds, PRTG, or Zabbix target."""
 
     def __init__(self, target: TargetConfig, client: Any | None = None) -> None:
         self._target = target
+        self._zbx_rpc_id = 0
+        self._zbx_legacy_auth = False  # flips after a 6.0 server rejects Bearer
         auth = None
         if target.platform == PLATFORM_SOLARWINDS:
             auth = httpx.BasicAuth(target.username, target.secret)
@@ -152,6 +163,55 @@ class MonitoringConnection:
         """POST a PRTG API path (acknowledge/pause/resume) with the token appended."""
         self._require(PLATFORM_PRTG, "prtg_post")
         return self._request("POST", path, params=self._prtg_params(params))
+
+    # ── Zabbix (JSON-RPC 2.0) ────────────────────────────────────────────
+    @staticmethod
+    def _zbx_auth_error(err: dict) -> bool:
+        """True when a JSON-RPC error looks like an auth failure (token/session)."""
+        text = f"{err.get('message', '')} {err.get('data', '')}".lower()
+        return any(m in text for m in ("not authorised", "not authorized", "re-login"))
+
+    def zabbix_rpc(self, method: str, params: Any = None) -> Any:
+        """Call one Zabbix JSON-RPC 2.0 method; returns the ``result`` payload.
+
+        The API token rides in an ``Authorization: Bearer`` header (Zabbix
+        6.4+/7.x). If a 6.0 server rejects it with an auth error, ONE retry
+        resends the token as the legacy ``auth`` body field and the connection
+        remembers that mode. ``apiinfo.version`` is always sent without auth.
+        """
+        self._require(PLATFORM_ZABBIX, "zabbix_rpc")
+        self._zbx_rpc_id += 1
+        body: dict = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params if params is not None else {},
+            "id": self._zbx_rpc_id,
+        }
+        headers: dict = {}
+        authed = method not in _ZABBIX_NO_AUTH
+        if authed:
+            if self._zbx_legacy_auth:
+                body["auth"] = self._target.secret
+            else:
+                headers["Authorization"] = f"Bearer {self._target.secret}"
+        data = self._request("POST", _ZABBIX_RPC, json=body, headers=headers)
+        if not isinstance(data, dict):
+            return data
+        err = data.get("error")
+        if isinstance(err, dict):
+            if authed and not self._zbx_legacy_auth and self._zbx_auth_error(err):
+                # Bearer not accepted (Zabbix 6.0) — retry once with the
+                # legacy ``auth`` body field, then remember that mode.
+                self._zbx_legacy_auth = True
+                return self.zabbix_rpc(method, params)
+            raise MonitoringApiError(
+                f"Zabbix API error on '{method}': {err.get('message', '')} "
+                f"{str(err.get('data', ''))[:200]}".strip()
+                + ". For auth errors check the API token "
+                "(Administration → API tokens) and its expiry.",
+                path=_ZABBIX_RPC,
+            )
+        return data.get("result")
 
     def close(self) -> None:
         self._client.close()

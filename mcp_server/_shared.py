@@ -76,15 +76,17 @@ mcp = FastMCP(
     "monitoring-aiops",
     instructions=(
         "Network/infra monitoring operations (preview) over SolarWinds Orion "
-        "(SWIS/SWQL) and Paessler PRTG: a canned-SWQL library + validated "
-        "read-only SWQL passthrough; node/interface/volume/application health and "
-        "top-N; active alerts with dedup/rollup; events and historical metrics; "
-        "PRTG sensors/alarms/history; and governed light writes — acknowledge "
-        "alerts, mute/pause (time-boxed), schedule maintenance, and "
-        "unmanage/add/remove a node. Destructive writes (unmanage / remove node) "
-        "are risk=high with a dry_run preview and require an approver. Every tool "
-        "runs through the monitoring-aiops governance harness (audit / budget / "
-        "risk-tier / undo)."
+        "(SWIS/SWQL), Paessler PRTG, and Zabbix 6.x/7.x (JSON-RPC): a canned-SWQL "
+        "library + validated read-only SWQL passthrough; "
+        "node/interface/volume/application health and top-N; active alerts with "
+        "dedup/rollup; events and historical metrics; PRTG sensors/alarms/history; "
+        "Zabbix problems/hosts/triggers/item-history/maintenances; and governed "
+        "light writes — acknowledge alerts, mute/pause (time-boxed), schedule "
+        "maintenance (incl. Zabbix maintenance windows with a replayable "
+        "delete-undo), and unmanage/add/remove a node. Destructive writes "
+        "(unmanage / remove node / delete maintenance) are risk=high with a "
+        "dry_run preview and require an approver. Every tool runs through the "
+        "monitoring-aiops governance harness (audit / budget / risk-tier / undo)."
     ),
 )
 

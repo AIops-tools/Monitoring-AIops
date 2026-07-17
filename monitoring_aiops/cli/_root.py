@@ -11,17 +11,19 @@ from monitoring_aiops.cli.init import init_cmd
 from monitoring_aiops.cli.overview import overview_cmd
 from monitoring_aiops.cli.secret import secret_app
 from monitoring_aiops.cli.swql import swql_app
+from monitoring_aiops.cli.undo import undo_app
 
 app = typer.Typer(
     name="monitoring-aiops",
-    help="Governed AI-ops for SolarWinds Orion + PRTG: SWQL, alert rollup, "
-    "node/interface health, maintenance windows.",
+    help="Governed AI-ops for SolarWinds Orion + PRTG + Zabbix: SWQL, alert "
+    "rollup, node/interface health, maintenance windows.",
     no_args_is_help=True,
 )
 
 app.add_typer(swql_app, name="swql")
 app.add_typer(alert_app, name="alert")
 app.add_typer(secret_app, name="secret")
+app.add_typer(undo_app, name="undo")
 app.command("init")(init_cmd)
 app.command("overview")(overview_cmd)
 app.command("doctor")(doctor_cmd)

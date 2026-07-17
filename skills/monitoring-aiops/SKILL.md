@@ -1,10 +1,10 @@
 ---
 name: monitoring-aiops
 description: >
-  Use this skill whenever the user needs to operate a network / infrastructure monitoring NOC on SolarWinds Orion (SWIS REST + SWQL) or Paessler PRTG (web API) — a one-shot NOC overview, canned SWQL answers (nodes down, flapping interfaces, muted, high-CPU nodes, full volumes, unmanaged/scheduled), a validated read-only SWQL passthrough, deduped/rolled-up active alerts, SolarWinds node/interface/volume/application health and top-N, PRTG sensors/devices/groups/history/alarms, and guarded writes (acknowledge, mute/unmute, schedule maintenance, unmanage/remanage, remove node, pause/resume sensor).
-  Always use this skill for "SolarWinds", "Orion", "SWQL", "THWACK question", "PRTG", "Paessler", "NOC overview", "which nodes are down", "flapping interfaces", "interface flap storm", "alert storm", "acknowledge this alert", "worst CPU nodes", "top-N by latency/packet loss", "which volumes are full", "muted alerts report", "unmanaged nodes", "schedule a maintenance window", "unmanage / remanage a node", "pause a PRTG sensor" when the context is monitoring.
-  Do NOT use when the target is something other than a SolarWinds/PRTG monitoring platform (a hypervisor, storage appliance, backup product, Kubernetes cluster, network device config, or OT/industrial equipment) — route those to the appropriate other AIops-tools skill. Zabbix is out of scope.
-  Preview — governed monitoring operations with a built-in governance harness (audit, policy, token budget, undo, risk-tiers). Mock-validated only; PRTG's free Freeware edition is the easiest live check, SolarWinds is trial-only past 30 days.
+  Use this skill whenever the user needs to operate a network / infrastructure monitoring NOC on SolarWinds Orion (SWIS REST + SWQL), Paessler PRTG (web API), or Zabbix 6.x/7.x (JSON-RPC) — a one-shot NOC overview, canned SWQL answers (nodes down, flapping interfaces, muted, high-CPU nodes, full volumes, unmanaged/scheduled), a validated read-only SWQL passthrough, deduped/rolled-up active alerts, SolarWinds node/interface/volume/application health and top-N, PRTG sensors/devices/groups/history/alarms, Zabbix problems/hosts/host-groups/triggers/events/item-history/maintenances, and guarded writes (acknowledge, mute/unmute, schedule maintenance, unmanage/remanage, remove node, pause/resume sensor, create/delete Zabbix maintenance window).
+  Always use this skill for "SolarWinds", "Orion", "SWQL", "THWACK question", "PRTG", "Paessler", "Zabbix", "Zabbix problem", "Zabbix trigger", "Zabbix maintenance", "NOC overview", "which nodes are down", "flapping interfaces", "interface flap storm", "alert storm", "acknowledge this alert", "worst CPU nodes", "top-N by latency/packet loss", "which volumes are full", "muted alerts report", "unmanaged nodes", "schedule a maintenance window", "unmanage / remanage a node", "pause a PRTG sensor" when the context is monitoring.
+  Do NOT use when the target is something other than a SolarWinds/PRTG/Zabbix monitoring platform (a hypervisor, storage appliance, backup product, Kubernetes cluster, network device config, or OT/industrial equipment) — route those to the appropriate other AIops-tools skill.
+  Preview — governed monitoring operations with a built-in governance harness (audit, policy, token budget, undo, risk-tiers). Mock-validated only; PRTG's free Freeware edition and an open-source Zabbix appliance are the easiest live checks, SolarWinds is trial-only past 30 days.
 installer:
   kind: uv
   package: monitoring-aiops
@@ -13,45 +13,51 @@ allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["MONITORING_AIOPS_CONFIG"],"bins":["monitoring-aiops"],"config":["~/.monitoring-aiops/config.yaml","~/.monitoring-aiops/secrets.enc"]},"optional":{"env":["MONITORING_AIOPS_MASTER_PASSWORD"]},"primaryEnv":"MONITORING_AIOPS_CONFIG","homepage":"https://github.com/AIops-tools/Monitoring-AIops","emoji":"📡","os":["macos","linux"]}}
 compatibility: >
-  Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth) and Paessler PRTG (web API, port 443/8080, API token) — preview. Each target in the config names its own platform, so one config can span both NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
+  Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at /api_jsonrpc.php, API token as Bearer header on 6.4+/7.x with a legacy auth-field fallback for 6.0) — preview. Each target in the config names its own platform, so one config can span all NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
   All write operations are audited to a local SQLite DB under ~/.monitoring-aiops/ (relocatable via MONITORING_AIOPS_HOME).
-  Credentials: the Orion account password (SolarWinds) or the PRTG API token is stored ENCRYPTED in ~/.monitoring-aiops/secrets.enc (Fernet/AES-128 + scrypt-derived key) — never plaintext on disk. Run 'monitoring-aiops init' to onboard (it asks for the platform), or 'monitoring-aiops secret set <target>' to add one. The store is unlocked by a master password from MONITORING_AIOPS_MASTER_PASSWORD (non-interactive/MCP/CI) or an interactive prompt (CLI on a TTY). A legacy plaintext env var MONITORING_<TARGET_NAME_UPPER>_SECRET is still honoured as a fallback with a deprecation warning (migrate with 'monitoring-aiops secret migrate'). The secret is used for HTTP Basic auth (SolarWinds) or as the PRTG API token at request time and held only in memory; secrets are never logged or echoed.
-  Read-only SWQL passthrough (swql_query) is validated to accept SELECT statements only. State-changing operations pass through the @governed_tool decorator (pre-check + budget guard + audit + risk-tier gate). Destructive writes (unmanage_node, remove_node) are high-risk with dry_run + double confirmation; unmanage_node records an inverse remanage undo descriptor. Suppression/maintenance writes are TIME-BOXED (mute_alerts, schedule_maintenance, schedule_maintenance_prtg require an end time / duration). mute_alerts→unmute, pause_sensor→resume record inverse undo descriptors.
-  Webhooks: none — no outbound network calls beyond the configured SolarWinds SWIS / PRTG web API.
+  Credentials: the Orion account password (SolarWinds), the PRTG API token, or the Zabbix API token is stored ENCRYPTED in ~/.monitoring-aiops/secrets.enc (Fernet/AES-128 + scrypt-derived key) — never plaintext on disk. Run 'monitoring-aiops init' to onboard (it asks for the platform), or 'monitoring-aiops secret set <target>' to add one. The store is unlocked by a master password from MONITORING_AIOPS_MASTER_PASSWORD (non-interactive/MCP/CI) or an interactive prompt (CLI on a TTY). A legacy plaintext env var MONITORING_<TARGET_NAME_UPPER>_SECRET is still honoured as a fallback with a deprecation warning (migrate with 'monitoring-aiops secret migrate'). The secret is used for HTTP Basic auth (SolarWinds) or as the PRTG/Zabbix API token at request time and held only in memory; secrets are never logged or echoed.
+  Read-only SWQL passthrough (swql_query) is validated to accept SELECT statements only. State-changing operations pass through the @governed_tool decorator (pre-check + budget guard + audit + risk-tier gate). Destructive writes (unmanage_node, remove_node, zabbix_delete_maintenance) are high-risk with dry_run + double confirmation; unmanage_node records an inverse remanage undo descriptor, zabbix_delete_maintenance captures the window's FULL definition into priorState first. Suppression/maintenance writes are TIME-BOXED (mute_alerts, schedule_maintenance, schedule_maintenance_prtg, zabbix_create_maintenance require an end time / duration). mute_alerts→unmute, pause_sensor→resume, zabbix_create_maintenance→delete-that-maintenance-id record inverse undo descriptors. Zabbix item history is BOUNDED (capped window + point count).
+  Webhooks: none — no outbound network calls beyond the configured SolarWinds SWIS / PRTG web API / Zabbix JSON-RPC endpoint.
   SSL: verify_ssl defaults to false-friendly for self-signed lab certs; enable for production.
   Transitive dependencies: httpx (HTTP client) and the MCP SDK. No post-install scripts or background services.
-  PREVIEW: mock-validated only. PRTG has a free perpetual 100-sensor Freeware edition with the API (easiest live check); SolarWinds is a 30-day trial (mock-only past that — largest verification debt).
+  PREVIEW: mock-validated only. PRTG has a free perpetual 100-sensor Freeware edition with the API, and Zabbix is fully open source (a Docker-compose appliance is a 10-minute live check) — the easiest live checks; SolarWinds is a 30-day trial (mock-only past that — largest verification debt).
 ---
 
 # Monitoring AIops (preview)
 
-> **Disclaimer**: Community-maintained open-source project, **not affiliated with, endorsed by, or sponsored by SolarWinds, Paessler, or any monitoring vendor.** SolarWinds, Orion, SWQL, THWACK, PRTG and Paessler are trademarks of their respective owners. Source at [github.com/AIops-tools/Monitoring-AIops](https://github.com/AIops-tools/Monitoring-AIops) under the MIT license.
+> **Disclaimer**: Community-maintained open-source project, **not affiliated with, endorsed by, or sponsored by SolarWinds, Paessler, Zabbix, or any monitoring vendor.** SolarWinds, Orion, SWQL, THWACK, PRTG, Paessler and Zabbix are trademarks of their respective owners. Source at [github.com/AIops-tools/Monitoring-AIops](https://github.com/AIops-tools/Monitoring-AIops) under the MIT license.
 
-Governed network / infrastructure monitoring operations — **31 MCP tools**
-across **SolarWinds Orion** (SWIS REST + SWQL) and **Paessler PRTG** (web API),
+Governed network / infrastructure monitoring operations — **40 MCP tools**
+across **SolarWinds Orion** (SWIS REST + SWQL), **Paessler PRTG** (web API),
+and **Zabbix 6.x/7.x** (JSON-RPC 2.0),
 every one wrapped with the bundled `@governed_tool` harness: a local unified
 audit log under `~/.monitoring-aiops/`, policy engine, token/runaway budget
 guard, undo-token recording, and graduated-autonomy risk tiers. One config can
-span both NOCs. The Orion password / PRTG API token is stored **encrypted**
-(`~/.monitoring-aiops/secrets.enc`, Fernet + scrypt) — never plaintext on disk.
+span all NOCs. The Orion password / PRTG API token / Zabbix API token is stored
+**encrypted** (`~/.monitoring-aiops/secrets.enc`, Fernet + scrypt) — never
+plaintext on disk.
 
 > **Standalone**: the governance harness is bundled in the package
 > (`monitoring_aiops.governance`) — no external skill-family dependency.
-> **Preview / mock-only**: PRTG's free Freeware edition is the easiest live
-> check; SolarWinds is trial-only past 30 days (largest verification debt).
+> **Preview / mock-only**: PRTG's free Freeware edition and an open-source
+> Zabbix appliance are the easiest live checks; SolarWinds is trial-only past
+> 30 days (largest verification debt).
 
 ## What This Skill Does
 
 | Group | Platform | Tools | Count | R/W |
 |-------|----------|-------|:-----:|:---:|
 | **SWQL** | SolarWinds | library, canned, query (SELECT-only passthrough) | 3 | read |
-| **Alerts** | both | active_alerts (dedup/rollup), alert_acknowledge | 2 | 1 read, 1 write |
+| **Alerts** | all | active_alerts (dedup/rollup), alert_acknowledge | 2 | 1 read, 1 write |
 | **SolarWinds health** | SolarWinds | node/nodes/interface/volume/application status, topn, noc_rollup | 7 | read |
 | **SolarWinds writes** | SolarWinds | list_events/unmanaged/muted | 3 | read |
 | | SolarWinds | mute/unmute, schedule_maintenance, remanage_node | 4 | write (med) |
 | | SolarWinds | unmanage_node, remove_node | 2 | write (**high**) |
 | **PRTG** | PRTG | sensors/sensor_details/devices/groups/history/system_status/alarms | 7 | read |
 | **PRTG writes** | PRTG | pause_sensor, resume_sensor, schedule_maintenance_prtg | 3 | write (med) |
+| **Zabbix** | Zabbix | zabbix_problems/hosts/hostgroups/triggers/events/item_history/maintenances | 7 | read |
+| **Zabbix writes** | Zabbix | zabbix_create_maintenance (time-boxed; undo = delete that id) | 1 | write (med) |
+| | Zabbix | zabbix_delete_maintenance (priorState = full definition) | 1 | write (**high**) |
 
 The canned SWQL library (`swql_library` lists them) answers the most-repeated
 THWACK questions directly: `nodes_down`, `flapping_interfaces`, `muted_report`,
@@ -62,7 +68,7 @@ THWACK questions directly: `nodes_down`, `flapping_interfaces`, `muted_report`,
 
 ```bash
 uv tool install monitoring-aiops
-monitoring-aiops init       # wizard: pick platform (solarwinds/prtg) + encrypted secret
+monitoring-aiops init       # wizard: pick platform (solarwinds/prtg/zabbix) + encrypted secret
 monitoring-aiops doctor
 ```
 
@@ -78,21 +84,25 @@ monitoring-aiops doctor
   `volume_status`, `application_status` (SAM), `topn` (cpu/mem/latency/loss)
 - PRTG: list `prtg_sensors` / `prtg_devices` / `prtg_groups`, drill with
   `prtg_sensor_details` / `prtg_history`, check `prtg_alarms` / `prtg_system_status`
+- Zabbix: triage `zabbix_problems` (0-5 severity mapped to levels) /
+  `zabbix_triggers`, inventory `zabbix_hosts` / `zabbix_hostgroups`, drill with
+  `zabbix_item_history` (bounded), review `zabbix_events` / `zabbix_maintenances`
 - Safely take a node out for maintenance (`schedule_maintenance` /
-  `unmanage_node` with dry_run + approver), or pause a PRTG sensor (`pause_sensor`)
+  `unmanage_node` with dry_run + approver), pause a PRTG sensor
+  (`pause_sensor`), or create a time-boxed Zabbix maintenance window
+  (`zabbix_create_maintenance` — undo deletes exactly that window)
 
-**Do NOT use when** the target is not a SolarWinds/PRTG monitoring platform —
-route hypervisor, storage, backup, cluster, network-device-config, or
-OT/industrial work to the appropriate other AIops-tools skill. Zabbix is out of
-scope.
+**Do NOT use when** the target is not a SolarWinds/PRTG/Zabbix monitoring
+platform — route hypervisor, storage, backup, cluster, network-device-config,
+or OT/industrial work to the appropriate other AIops-tools skill.
 
 ## Related Skills — Skill Routing
 
 | If the user wants… | Use |
 |--------------------|-----|
-| SolarWinds Orion / SWQL or PRTG monitoring ops | **monitoring-aiops** (this skill) |
+| SolarWinds Orion / SWQL, PRTG, or Zabbix monitoring ops | **monitoring-aiops** (this skill) |
 | A non-monitoring platform (hypervisor, storage, backup, cluster, network config, OT edge) | the appropriate **other AIops-tools** skill |
-| Zabbix / other monitoring stacks | out of scope for this tool |
+| Other monitoring stacks (not SolarWinds/PRTG/Zabbix) | out of scope for this tool |
 
 ## Common Workflows
 
@@ -108,7 +118,8 @@ scope.
 1. `active_alerts` → deduped/rolled-up entries; an interface-flap or node-down
    storm collapses into one entry with a count instead of a wall of alerts
 2. Pick the rolled-up entry that matters, then `alert_acknowledge` (SW
-   `AlertActive.Acknowledge` / PRTG `acknowledgealarm`)
+   `AlertActive.Acknowledge` / PRTG `acknowledgealarm` / Zabbix
+   `event.acknowledge` — the prior ack state lands in priorState)
 
 ### Which nodes are down / worst CPU
 
@@ -130,12 +141,15 @@ scope.
 
 - Every tool is audited to `~/.monitoring-aiops/audit.db` (relocatable via
   `MONITORING_AIOPS_HOME`).
-- High-risk ops (`unmanage_node`, `remove_node`) can require a named approver:
-  set `MONITORING_AUDIT_APPROVED_BY` and `MONITORING_AUDIT_RATIONALE`.
+- High-risk ops (`unmanage_node`, `remove_node`, `zabbix_delete_maintenance`)
+  can require a named approver: set `MONITORING_AUDIT_APPROVED_BY` and
+  `MONITORING_AUDIT_RATIONALE`.
 - Destructive writes support `--dry-run` and double confirmation at the CLI.
 - Suppression / maintenance writes are **time-boxed** (require an end time /
   duration). Reversible writes record an inverse descriptor (mute→unmute,
-  unmanage→remanage, pause→resume).
+  unmanage→remanage, pause→resume, zabbix_create_maintenance→delete that
+  maintenance id). `zabbix_delete_maintenance` captures the window's full
+  definition into priorState before deleting.
 
 ## References
 

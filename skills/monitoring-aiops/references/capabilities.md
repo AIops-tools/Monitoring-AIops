@@ -1,9 +1,11 @@
 # monitoring-aiops capabilities
 
-> Preview / mock-only. **31 MCP tools** (23 read, 8 write) across SolarWinds
-> Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth) and Paessler PRTG (web
-> API, port 443/8080, API token). Each config target names its own `platform`.
-> SWIS/PRTG responses are mocked and need live verification.
+> Preview / mock-only. **40 MCP tools** (30 read, 10 write) across SolarWinds
+> Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web
+> API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at
+> `/api_jsonrpc.php`, API token — Bearer header on 6.4+/7.x, legacy `auth`
+> field fallback for 6.0). Each config target names its own `platform`.
+> SWIS/PRTG/Zabbix responses are mocked and need live verification.
 
 ## SWQL — SolarWinds (read)
 
@@ -13,12 +15,12 @@
 | `swql_canned` | named SWQL → SWIS `/Query` | rows for the named canned query |
 | `swql_query` | validated read-only SWQL → SWIS `/Query` | rows for a caller SELECT (SELECT-only; rejected otherwise) |
 
-## Alerts — both platforms
+## Alerts — all platforms
 
 | Tool | Risk | Path | Returns / effect |
 |------|------|------|------------------|
-| `active_alerts` | read | SWIS `AlertActive`/`AlertObjects` or PRTG `/api/table.json?content=messages` | active alerts **deduped/rolled up by message** — flap/down storms collapse into one counted entry |
-| `alert_acknowledge` | write **low** | SW `AlertActive.Acknowledge` verb / PRTG `acknowledgealarm.htm` | acknowledges an alert / alarm |
+| `active_alerts` | read | SWIS `AlertActive`/`AlertObjects`, PRTG `/api/table.json?content=messages`, or Zabbix `problem.get` | active alerts **deduped/rolled up by message** — flap/down storms collapse into one counted entry |
+| `alert_acknowledge` | write **low** | SW `AlertActive.Acknowledge` verb / PRTG `acknowledgealarm.htm` / Zabbix `event.acknowledge` (action 6; prior ack state → priorState) | acknowledges an alert / alarm / problem event |
 
 ## SolarWinds health (read)
 
@@ -66,9 +68,29 @@
 | `resume_sensor` | write **med** | `/api/pause.htm?action=1` | resumes a paused sensor |
 | `schedule_maintenance_prtg` | write **med** | `/api/pauseobjectfor.htm?duration=` | **time-boxed** (requires minutes) |
 
+## Zabbix (read)
+
+| Tool | JSON-RPC method | Returns |
+|------|-----------------|---------|
+| `zabbix_problems` | `problem.get` | current problems; severity 0-5 mapped to names + canonical levels (`info`/`warning`/`high`/`critical`) |
+| `zabbix_hosts` | `host.get` (+interfaces, +host groups) | host inventory: monitored flag, interfaces (ip/dns/availability), groups |
+| `zabbix_hostgroups` | `hostgroup.get` | host groups (ids + names) |
+| `zabbix_triggers` | `trigger.get` | triggers, by default only those currently firing (PROBLEM) |
+| `zabbix_events` | `event.get` | recent trigger events (newest first, capped) |
+| `zabbix_item_history` | `item.get` + `history.get` | **bounded** metric detail: item meta + history points (window ≤ 168 h, ≤ 500 points) |
+| `zabbix_maintenances` | `maintenance.get` | maintenance windows with hosts/groups + periods |
+
+## Zabbix writes
+
+| Tool | Risk | JSON-RPC method | Undo / safety |
+|------|------|-----------------|---------------|
+| `zabbix_create_maintenance` | write **med** | `maintenance.create` | **time-boxed** (minutes > 0) + must name hosts/groups; records a **replayable undo** = delete exactly the created maintenance id |
+| `zabbix_delete_maintenance` | write **HIGH** | `maintenance.delete` | `dry_run` + double-confirm; the window's **full definition** is captured into priorState first (no undo — re-create manually from it) |
+
 ## Out of scope (by design)
 
-- **Zabbix** and other monitoring stacks (only SolarWinds Orion + PRTG here)
+- Monitoring stacks other than SolarWinds Orion, PRTG, and Zabbix
+- Zabbix template / discovery / user CRUD, `trend.get`, and host **onboarding**
 - Creating alerts / thresholds / SWQL-view CRUD, and node/interface **onboarding**
 - Anything outside monitoring (hypervisor, storage, backup, cluster, network
   device config, OT/industrial) — route to the appropriate other AIops-tools skill
