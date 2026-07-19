@@ -75,7 +75,7 @@ def tool_errors(shape: str = "dict") -> Callable:
 mcp = FastMCP(
     "monitoring-aiops",
     instructions=(
-        "Network/infra monitoring operations (preview) over SolarWinds Orion "
+        "Network/infra monitoring operations over SolarWinds Orion "
         "(SWIS/SWQL), Paessler PRTG, and Zabbix 6.x/7.x (JSON-RPC): a canned-SWQL "
         "library + validated read-only SWQL passthrough; "
         "node/interface/volume/application health and top-N; active alerts with "

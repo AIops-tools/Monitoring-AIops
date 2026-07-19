@@ -46,6 +46,8 @@ def _unmanage_undo(params: dict[str, Any], result: Any) -> Optional[dict]:
 def list_events(top: int = 50, target: Optional[str] = None) -> dict:
     """[READ] Most recent SolarWinds Orion events (newest first).
 
+    Sets ``truncated: true`` when more events exist than were returned.
+
     Args:
         top: Number of events to return (newest first).
         target: SolarWinds target name from config; omit for the default.

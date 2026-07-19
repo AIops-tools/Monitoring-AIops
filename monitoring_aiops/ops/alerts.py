@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from monitoring_aiops.config import PLATFORM_SOLARWINDS, PLATFORM_ZABBIX
-from monitoring_aiops.ops._util import rows, s
+from monitoring_aiops.ops._util import opt_s, rows, s
 
 _SW_ACTIVE = (
     "SELECT a.AlertActiveID, a.AlertObjectID, ao.EntityCaption, a.TriggeredMessage, "
@@ -39,11 +39,11 @@ def active_alerts(conn: Any) -> dict:
         if platform == PLATFORM_SOLARWINDS:
             raw = conn.swql(_SW_ACTIVE)
             norm = [{
-                "id": s(r.get("AlertActiveID")),
-                "entity": s(r.get("EntityCaption")),
-                "message": s(r.get("TriggeredMessage")),
+                "id": opt_s(r.get("AlertActiveID")),
+                "entity": opt_s(r.get("EntityCaption")),
+                "message": opt_s(r.get("TriggeredMessage")),
                 "acknowledged": bool(r.get("Acknowledged")),
-                "triggeredAt": s(r.get("TriggeredDateTime")),
+                "triggeredAt": opt_s(r.get("TriggeredDateTime")),
             } for r in raw]
         elif platform == PLATFORM_ZABBIX:  # current problems are the active alerts
             from monitoring_aiops.ops.zabbix import list_problems
@@ -66,11 +66,11 @@ def active_alerts(conn: Any) -> dict:
                 "filter_status": "5",  # 5 = down
             })
             norm = [{
-                "id": s(r.get("objid")),
-                "entity": s(r.get("device")),
-                "message": s(r.get("message") or r.get("sensor")),
+                "id": opt_s(r.get("objid")),
+                "entity": opt_s(r.get("device")),
+                "message": opt_s(r.get("message") or r.get("sensor")),
                 "acknowledged": False,
-                "status": s(r.get("status")),
+                "status": opt_s(r.get("status")),
             } for r in rows(data, "sensors")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200), "platform": platform}
@@ -84,7 +84,7 @@ def active_alerts(conn: Any) -> dict:
 
 
 def acknowledge_alert(conn: Any, alert_id: str) -> dict:
-    """[WRITE][low] Acknowledge one active alert (SolarWinds, PRTG, or Zabbix)."""
+    """[WRITE][medium] Acknowledge one active alert (SolarWinds, PRTG, or Zabbix)."""
     platform = conn.target.platform
     prior_state = None
     if platform == PLATFORM_SOLARWINDS:

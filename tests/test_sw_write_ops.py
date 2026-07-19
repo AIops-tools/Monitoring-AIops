@@ -28,9 +28,14 @@ def test_list_events_normalizes_and_caps_with_top_param():
         {"EventID": 1, "EventTime": "t1", "Message": "boot", "NetworkNode": "n1"},
     ])
     out = ops.list_events(conn, top=10)
-    assert out["total"] == 1 and out["events"][0]["message"] == "boot"
+    # No "total": the feed is over-fetched and sliced, so the true server-side
+    # count is unknown — "returned" + "truncated" carry the honest story.
+    assert "total" not in out
+    assert out["events"][0]["message"] == "boot"
+    assert out["returned"] == 1 and out["limit"] == 10 and out["truncated"] is False
     query, params = conn.swql.call_args.args
-    assert params == {"n": 10}
+    # One row past the cap is requested so `truncated` is measured, not guessed.
+    assert params == {"n": 11}
     assert "TOP @n" in query
 
 

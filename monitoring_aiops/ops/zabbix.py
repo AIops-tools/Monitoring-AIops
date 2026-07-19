@@ -18,7 +18,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from monitoring_aiops.ops._util import s
+from monitoring_aiops.ops._util import opt_s, s
 
 # Zabbix problem/trigger severity scale (0-5) → the platform's own names…
 SEVERITY_NAMES = {
@@ -72,12 +72,12 @@ def list_problems(conn: Any, min_severity: int = 0) -> dict:
             params["severities"] = list(range(min_severity, 6))
         raw = _dicts(conn.zabbix_rpc("problem.get", params))
         problems = [{
-            "eventId": s(r.get("eventid")),
-            "triggerId": s(r.get("objectid")),
-            "name": s(r.get("name")),
+            "eventId": opt_s(r.get("eventid")),
+            "triggerId": opt_s(r.get("objectid")),
+            "name": opt_s(r.get("name")),
             **severity_of(r.get("severity")),
             "acknowledged": str(r.get("acknowledged")) == "1",
-            "clock": s(r.get("clock")),
+            "clock": opt_s(r.get("clock")),
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -93,19 +93,20 @@ def list_hosts(conn: Any) -> dict:
             "selectHostGroups": ["groupid", "name"],
         }))
         hosts = [{
-            "hostId": s(r.get("hostid")),
-            "host": s(r.get("host")),
-            "name": s(r.get("name")),
+            "hostId": opt_s(r.get("hostid")),
+            "host": opt_s(r.get("host")),
+            "name": opt_s(r.get("name")),
             # status: 0 = monitored, 1 = unmonitored (disabled)
             "monitored": str(r.get("status")) == "0",
             "interfaces": [{
-                "ip": s(i.get("ip")),
-                "dns": s(i.get("dns")),
-                "port": s(i.get("port")),
+                "ip": opt_s(i.get("ip")),
+                "dns": opt_s(i.get("dns")),
+                "port": opt_s(i.get("port")),
                 # available: 0 unknown, 1 available, 2 unavailable
-                "available": s(i.get("available")),
+                "available": opt_s(i.get("available")),
             } for i in _dicts(r.get("interfaces"))],
-            "groups": [s(g.get("name")) for g in _dicts(r.get("hostgroups") or r.get("groups"))],
+            "groups": [opt_s(g.get("name"))
+                       for g in _dicts(r.get("hostgroups") or r.get("groups"))],
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -116,7 +117,7 @@ def list_hostgroups(conn: Any) -> dict:
     """[READ] Host groups (the Zabbix inventory grouping)."""
     try:
         raw = _dicts(conn.zabbix_rpc("hostgroup.get", {"output": ["groupid", "name"]}))
-        groups = [{"groupId": s(r.get("groupid")), "name": s(r.get("name"))} for r in raw]
+        groups = [{"groupId": opt_s(r.get("groupid")), "name": opt_s(r.get("name"))} for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
     return {"total": len(groups), "groups": groups}
@@ -136,12 +137,12 @@ def list_triggers(conn: Any, only_problems: bool = True) -> dict:
             params["only_true"] = True
         raw = _dicts(conn.zabbix_rpc("trigger.get", params))
         triggers = [{
-            "triggerId": s(r.get("triggerid")),
-            "description": s(r.get("description")),
+            "triggerId": opt_s(r.get("triggerid")),
+            "description": opt_s(r.get("description")),
             **severity_of(r.get("priority")),
             "inProblem": str(r.get("value")) == "1",
-            "lastChange": s(r.get("lastchange")),
-            "hosts": [s(h.get("host")) for h in _dicts(r.get("hosts"))],
+            "lastChange": opt_s(r.get("lastchange")),
+            "hosts": [opt_s(h.get("host")) for h in _dicts(r.get("hosts"))],
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -149,26 +150,42 @@ def list_triggers(conn: Any, only_problems: bool = True) -> dict:
 
 
 def list_events(conn: Any, top: int = 50) -> dict:
-    """[READ] Most recent trigger events (newest first, capped at ``top``)."""
+    """[READ] Most recent trigger events (newest first, capped at ``top``).
+
+    One event past the cap is requested so ``truncated`` is *measured* rather
+    than guessed from the returned length happening to equal the cap — the
+    coincidence a smaller local model reads as "that is every event".
+    """
+    requested = max(1, min(int(top), 500))
     try:
         raw = _dicts(conn.zabbix_rpc("event.get", {
             "output": ["eventid", "name", "severity", "acknowledged", "clock", "value"],
             "source": 0,  # trigger events
             "sortfield": ["clock", "eventid"],
             "sortorder": "DESC",
-            "limit": max(1, min(int(top), 500)),
+            "limit": requested + 1,
         }))
+        truncated = len(raw) > requested
+        raw = raw[:requested]
         events = [{
-            "eventId": s(r.get("eventid")),
-            "name": s(r.get("name")),
+            "eventId": opt_s(r.get("eventid")),
+            "name": opt_s(r.get("name")),
             **severity_of(r.get("severity")),
             "acknowledged": str(r.get("acknowledged")) == "1",
-            "clock": s(r.get("clock")),
+            "clock": opt_s(r.get("clock")),
             "problem": str(r.get("value")) == "1",
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
-    return {"total": len(events), "events": events}
+    return {
+        # No "total": the feed was over-fetched by one and sliced, so the real
+        # server-side total is unknown. "truncated" says there is more; a
+        # "total" echoing "returned" would claim otherwise.
+        "events": events,
+        "returned": len(events),
+        "limit": requested,
+        "truncated": truncated,
+    }
 
 
 def item_history(conn: Any, item_id: str, hours: int = 24, limit: int = 100) -> dict:
@@ -195,19 +212,24 @@ def item_history(conn: Any, item_id: str, hours: int = 24, limit: int = 100) -> 
             "time_from": int(time.time()) - hours * 3600,
             "sortfield": "clock",
             "sortorder": "DESC",
-            "limit": limit,
+            "limit": limit + 1,  # one extra: makes `truncated` measured, not guessed
         }))
-        points = [{"clock": s(r.get("clock")), "value": s(r.get("value"))} for r in raw]
+        truncated = len(raw) > limit
+        points = [{"clock": opt_s(r.get("clock")), "value": opt_s(r.get("value"))}
+                  for r in raw[:limit]]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200), "itemId": s(item_id)}
     return {
         "itemId": s(item_id),
-        "name": s(item.get("name")),
-        "key": s(item.get("key_")),
-        "units": s(item.get("units")),
-        "lastValue": s(item.get("lastvalue")),
+        "name": opt_s(item.get("name")),
+        "key": opt_s(item.get("key_")),
+        "units": opt_s(item.get("units")),
+        "lastValue": opt_s(item.get("lastvalue")),
         "hours": hours,
         "points": points,
+        "returned": len(points),
+        "limit": limit,
+        "truncated": truncated,
     }
 
 
@@ -221,11 +243,12 @@ def list_maintenances(conn: Any) -> dict:
         }))
         windows = [{
             "maintenanceId": s(r.get("maintenanceid")),
-            "name": s(r.get("name")),
+            "name": opt_s(r.get("name")),
             "activeSince": s(r.get("active_since")),
             "activeTill": s(r.get("active_till")),
-            "hosts": [s(h.get("host")) for h in _dicts(r.get("hosts"))],
-            "groups": [s(g.get("name")) for g in _dicts(r.get("hostgroups") or r.get("groups"))],
+            "hosts": [opt_s(h.get("host")) for h in _dicts(r.get("hosts"))],
+            "groups": [opt_s(g.get("name"))
+                       for g in _dicts(r.get("hostgroups") or r.get("groups"))],
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}

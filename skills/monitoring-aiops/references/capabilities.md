@@ -1,6 +1,6 @@
 # monitoring-aiops capabilities
 
-> Preview / mock-only. **40 MCP tools** (30 read, 10 write) across SolarWinds
+> **42 MCP tools** (30 read, 10 write, 2 undo) across SolarWinds
 > Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web
 > API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at
 > `/api_jsonrpc.php`, API token — Bearer header on 6.4+/7.x, legacy `auth`
@@ -20,7 +20,7 @@
 | Tool | Risk | Path | Returns / effect |
 |------|------|------|------------------|
 | `active_alerts` | read | SWIS `AlertActive`/`AlertObjects`, PRTG `/api/table.json?content=messages`, or Zabbix `problem.get` | active alerts **deduped/rolled up by message** — flap/down storms collapse into one counted entry |
-| `alert_acknowledge` | write **low** | SW `AlertActive.Acknowledge` verb / PRTG `acknowledgealarm.htm` / Zabbix `event.acknowledge` (action 6; prior ack state → priorState) | acknowledges an alert / alarm / problem event |
+| `alert_acknowledge` | write **medium** | SW `AlertActive.Acknowledge` verb / PRTG `acknowledgealarm.htm` / Zabbix `event.acknowledge` (action 6; prior ack state → priorState) | acknowledges an alert / alarm / problem event |
 
 ## SolarWinds health (read)
 

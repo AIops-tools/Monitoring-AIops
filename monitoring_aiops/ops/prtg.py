@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from monitoring_aiops.ops._util import as_obj, rows, s
+from monitoring_aiops.ops._util import as_obj, opt_s, rows, s
 
 
 def list_sensors(conn: Any, status: str | None = None) -> dict:
@@ -29,12 +29,12 @@ def list_sensors(conn: Any, status: str | None = None) -> dict:
             params["filter_status"] = s(status, 16)
         data = conn.prtg_get("/api/table.json", params)
         sensors = [{
-            "objid": s(r.get("objid")),
-            "sensor": s(r.get("sensor")),
-            "device": s(r.get("device")),
-            "status": s(r.get("status")),
-            "message": s(r.get("message")),
-            "lastValue": s(r.get("lastvalue")),
+            "objid": opt_s(r.get("objid")),
+            "sensor": opt_s(r.get("sensor")),
+            "device": opt_s(r.get("device")),
+            "status": opt_s(r.get("status")),
+            "message": opt_s(r.get("message")),
+            "lastValue": opt_s(r.get("lastvalue")),
         } for r in rows(data, "sensors")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -48,11 +48,11 @@ def sensor_details(conn: Any, sensor_id: str) -> dict:
         obj = as_obj(as_obj(data).get("sensordata")) or as_obj(data)
         return {
             "sensorId": s(sensor_id),
-            "name": s(obj.get("name")),
-            "status": s(obj.get("statustext") or obj.get("status")),
-            "lastValue": s(obj.get("lastvalue")),
-            "lastMessage": s(obj.get("lastmessage")),
-            "sensorType": s(obj.get("sensortype")),
+            "name": opt_s(obj.get("name")),
+            "status": opt_s(obj.get("statustext") or obj.get("status")),
+            "lastValue": opt_s(obj.get("lastvalue")),
+            "lastMessage": opt_s(obj.get("lastmessage")),
+            "sensorType": opt_s(obj.get("sensortype")),
         }
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200), "sensorId": s(sensor_id)}
@@ -66,11 +66,11 @@ def list_devices(conn: Any) -> dict:
             "columns": "objid,device,host,status,group",
         })
         devices = [{
-            "objid": s(r.get("objid")),
-            "device": s(r.get("device")),
-            "host": s(r.get("host")),
-            "status": s(r.get("status")),
-            "group": s(r.get("group")),
+            "objid": opt_s(r.get("objid")),
+            "device": opt_s(r.get("device")),
+            "host": opt_s(r.get("host")),
+            "status": opt_s(r.get("status")),
+            "group": opt_s(r.get("group")),
         } for r in rows(data, "devices")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -85,9 +85,9 @@ def list_groups(conn: Any) -> dict:
             "columns": "objid,group,status",
         })
         groups = [{
-            "objid": s(r.get("objid")),
-            "group": s(r.get("group")),
-            "status": s(r.get("status")),
+            "objid": opt_s(r.get("objid")),
+            "group": opt_s(r.get("group")),
+            "status": opt_s(r.get("status")),
         } for r in rows(data, "groups")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -99,8 +99,8 @@ def sensor_history(conn: Any, sensor_id: str, hours: int = 24) -> dict:
     try:
         data = conn.prtg_get("/api/historicdata.json", {"id": s(sensor_id, 32), "avg": 0})
         points = [{
-            "datetime": s(r.get("datetime")),
-            "value": s(r.get("value") if r.get("value") is not None else r.get("value_raw")),
+            "datetime": opt_s(r.get("datetime")),
+            "value": opt_s(r.get("value") if r.get("value") is not None else r.get("value_raw")),
         } for r in rows(data, "histdata")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200), "sensorId": s(sensor_id)}
@@ -115,11 +115,11 @@ def system_status(conn: Any) -> dict:
             (obj[k] for k in keys if obj.get(k) is not None), None
         )
         return {
-            "sensorsUp": s(pick("totalsensorup", "upsens", "ok")) or None,
-            "sensorsDown": s(pick("totalsensordown", "downsens", "down")) or None,
-            "sensorsWarning": s(pick("totalsensorwarning", "warnsens", "warn")) or None,
-            "sensorsPaused": s(pick("totalsensorpaused", "pausedsens", "paused")) or None,
-            "alarms": s(pick("alarms", "totalalarms")) or None,
+            "sensorsUp": opt_s(pick("totalsensorup", "upsens", "ok")),
+            "sensorsDown": opt_s(pick("totalsensordown", "downsens", "down")),
+            "sensorsWarning": opt_s(pick("totalsensorwarning", "warnsens", "warn")),
+            "sensorsPaused": opt_s(pick("totalsensorpaused", "pausedsens", "paused")),
+            "alarms": opt_s(pick("alarms", "totalalarms")),
         }
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -134,11 +134,11 @@ def list_alarms(conn: Any) -> dict:
             "filter_status": "5",
         })
         alarms = [{
-            "objid": s(r.get("objid")),
-            "sensor": s(r.get("sensor")),
-            "device": s(r.get("device")),
-            "status": s(r.get("status")),
-            "message": s(r.get("message")),
+            "objid": opt_s(r.get("objid")),
+            "sensor": opt_s(r.get("sensor")),
+            "device": opt_s(r.get("device")),
+            "status": opt_s(r.get("status")),
+            "message": opt_s(r.get("message")),
         } for r in rows(data, "sensors")]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}

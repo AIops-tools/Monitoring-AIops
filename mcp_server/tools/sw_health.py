@@ -39,6 +39,10 @@ def nodes_list(status: Optional[int] = None, target: Optional[str] = None) -> di
 def interface_status(top: Optional[int] = None, target: Optional[str] = None) -> dict:
     """[READ] Interface status + utilization (Orion.NPM.Interfaces).
 
+    With ``top`` set, sets ``truncated: true`` when more interfaces existed than
+    were returned — the whole table is fetched and ranked before the cut, so the
+    flag is measured rather than inferred.
+
     Args:
         top: If given, return only the top-N interfaces by peak utilization.
         target: SolarWinds target name from config; omit for the default.

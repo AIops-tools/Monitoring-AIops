@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from monitoring_aiops.ops._util import s
+from monitoring_aiops.ops._util import opt_s, s
 
 # Status code → label (Orion.Nodes.Status).
 _STATUS = {1: "Up", 2: "Down", 3: "Warning"}
@@ -54,8 +54,14 @@ def _num(value: Any) -> float:
         return 0.0
 
 
-def _status_label(value: Any) -> str:
-    """Map an Orion status code to its label (falls back to the raw value)."""
+def _status_label(value: Any) -> str | None:
+    """Map an Orion status code to its label, or None when Orion sent no status.
+
+    An absent status is not the same fact as an unrecognised one: the latter is
+    reported verbatim so an operator can see what Orion actually said.
+    """
+    if value is None:
+        return None
     try:
         return _STATUS.get(int(value), s(value, 40))
     except (TypeError, ValueError):
@@ -72,10 +78,10 @@ def node_status(conn: Any, name_or_ip: str) -> dict:
         return {"error": "not found"}
     r = raw[0]
     return {
-        "caption": s(r.get("Caption")),
-        "ip": s(r.get("IP_Address")),
+        "caption": opt_s(r.get("Caption")),
+        "ip": opt_s(r.get("IP_Address")),
         "status": _status_label(r.get("Status")),
-        "statusDescription": s(r.get("StatusDescription")),
+        "statusDescription": opt_s(r.get("StatusDescription")),
         "cpuLoad": _num(r.get("CPULoad")),
         "percentMemoryUsed": _num(r.get("PercentMemoryUsed")),
     }
@@ -93,10 +99,10 @@ def nodes_list(conn: Any, status: int | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
     nodes = [{
-        "caption": s(r.get("Caption")),
-        "ip": s(r.get("IP_Address")),
+        "caption": opt_s(r.get("Caption")),
+        "ip": opt_s(r.get("IP_Address")),
         "status": _status_label(r.get("Status")),
-        "statusDescription": s(r.get("StatusDescription")),
+        "statusDescription": opt_s(r.get("StatusDescription")),
     } for r in raw]
     return {"total": len(nodes), "nodes": nodes}
 
@@ -108,18 +114,34 @@ def interface_status(conn: Any, top: int | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
     ifaces = [{
-        "nodeCaption": s(r.get("NodeCaption")),
-        "interfaceCaption": s(r.get("InterfaceCaption")),
+        "nodeCaption": opt_s(r.get("NodeCaption")),
+        "interfaceCaption": opt_s(r.get("InterfaceCaption")),
         "status": _status_label(r.get("Status")),
         "inPercentUtil": _num(r.get("InPercentUtil")),
         "outPercentUtil": _num(r.get("OutPercentUtil")),
     } for r in raw]
-    if top is not None:
-        ifaces.sort(
-            key=lambda i: max(i["inPercentUtil"], i["outPercentUtil"]), reverse=True
-        )
-        ifaces = ifaces[: int(top)]
-    return {"total": len(ifaces), "interfaces": ifaces}
+    if top is None:
+        return {
+            "total": len(ifaces),
+            "interfaces": ifaces,
+            "returned": len(ifaces),
+            "limit": None,
+            "truncated": False,
+        }
+    ifaces.sort(key=lambda i: max(i["inPercentUtil"], i["outPercentUtil"]), reverse=True)
+    requested = int(top)
+    kept = ifaces[:requested]
+    return {
+        # The genuine pre-cap total, not an alias of "returned" — a count that
+        # merely echoes the returned rows is the lying-count bug this envelope exists to kill.
+        "total": len(ifaces),
+        "interfaces": kept,
+        "returned": len(kept),
+        "limit": requested,
+        # The whole interface table was fetched before ranking, so "were there
+        # more?" is a measured fact here rather than an inference.
+        "truncated": len(ifaces) > requested,
+    }
 
 
 def volume_status(conn: Any, min_percent: float = 0) -> dict:
@@ -129,8 +151,8 @@ def volume_status(conn: Any, min_percent: float = 0) -> dict:
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
     vols = [{
-        "nodeCaption": s(r.get("NodeCaption")),
-        "volume": s(r.get("Volume")),
+        "nodeCaption": opt_s(r.get("NodeCaption")),
+        "volume": opt_s(r.get("Volume")),
         "percentUsed": _num(r.get("VolumePercentUsed")),
     } for r in raw]
     vols = [v for v in vols if v["percentUsed"] >= min_percent]
@@ -145,8 +167,8 @@ def application_status(conn: Any) -> dict:
     except Exception as exc:  # noqa: BLE001 — APM may not be installed
         return {"error": s(exc, 200)}
     apps = [{
-        "applicationName": s(r.get("ApplicationName")),
-        "nodeCaption": s(r.get("NodeCaption")),
+        "applicationName": opt_s(r.get("ApplicationName")),
+        "nodeCaption": opt_s(r.get("NodeCaption")),
         "status": _status_label(r.get("Status")),
     } for r in raw]
     return {"total": len(apps), "applications": apps}
@@ -167,7 +189,7 @@ def topn(conn: Any, metric: str = "cpu", n: int = 10) -> list[dict]:
         raw = conn.swql(query)
     except Exception:  # noqa: BLE001 — resilient: empty on failure
         return []
-    return [{"caption": s(r.get("Caption")), "value": _num(r.get(column))} for r in raw]
+    return [{"caption": opt_s(r.get("Caption")), "value": _num(r.get(column))} for r in raw]
 
 
 def _count(conn: Any, where: str, entity: str = "Orion.Nodes") -> int:

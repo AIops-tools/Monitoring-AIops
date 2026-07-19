@@ -1,9 +1,9 @@
 # monitoring-aiops CLI reference
 
-> Preview / mock-only. Covers SolarWinds Orion (SWIS REST + SWQL), Paessler
+> Covers SolarWinds Orion (SWIS REST + SWQL), Paessler
 > PRTG (web API), and Zabbix 6.x/7.x (JSON-RPC); SWIS/PRTG/Zabbix responses are
 > mocked and need live verification.
-> The CLI is a convenience subset — the full 40-tool surface is via the MCP
+> The CLI is a convenience subset — the full 42-tool surface is via the MCP
 > server (`monitoring-aiops mcp`).
 
 ## Setup & diagnostics

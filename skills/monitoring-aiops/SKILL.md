@@ -1,10 +1,16 @@
 ---
 name: monitoring-aiops
+slug: monitoring-aiops
+displayName: "Monitoring AIops"
+summary: "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools."
+license: MIT
+homepage: https://github.com/AIops-tools/Monitoring-AIops
+tags: [aiops, mcp, governance, monitoring]
 description: >
   Use this skill whenever the user needs to operate a network / infrastructure monitoring NOC on SolarWinds Orion (SWIS REST + SWQL), Paessler PRTG (web API), or Zabbix 6.x/7.x (JSON-RPC) — a one-shot NOC overview, canned SWQL answers (nodes down, flapping interfaces, muted, high-CPU nodes, full volumes, unmanaged/scheduled), a validated read-only SWQL passthrough, deduped/rolled-up active alerts, SolarWinds node/interface/volume/application health and top-N, PRTG sensors/devices/groups/history/alarms, Zabbix problems/hosts/host-groups/triggers/events/item-history/maintenances, and guarded writes (acknowledge, mute/unmute, schedule maintenance, unmanage/remanage, remove node, pause/resume sensor, create/delete Zabbix maintenance window).
   Always use this skill for "SolarWinds", "Orion", "SWQL", "THWACK question", "PRTG", "Paessler", "Zabbix", "Zabbix problem", "Zabbix trigger", "Zabbix maintenance", "NOC overview", "which nodes are down", "flapping interfaces", "interface flap storm", "alert storm", "acknowledge this alert", "worst CPU nodes", "top-N by latency/packet loss", "which volumes are full", "muted alerts report", "unmanaged nodes", "schedule a maintenance window", "unmanage / remanage a node", "pause a PRTG sensor" when the context is monitoring.
   Do NOT use when the target is something other than a SolarWinds/PRTG/Zabbix monitoring platform (a hypervisor, storage appliance, backup product, Kubernetes cluster, network device config, or OT/industrial equipment) — route those to the appropriate other AIops-tools skill.
-  Preview — governed monitoring operations with a built-in governance harness (audit, policy, token budget, undo, risk-tiers). Mock-validated only; PRTG's free Freeware edition and an open-source Zabbix appliance are the easiest live checks, SolarWinds is trial-only past 30 days.
+  Governed monitoring operations with a built-in governance harness (audit, policy, token budget, undo, risk-tiers). PRTG's free Freeware edition and an open-source Zabbix appliance are the easiest live checks; SolarWinds is trial-only past 30 days.
 installer:
   kind: uv
   package: monitoring-aiops
@@ -13,21 +19,21 @@ allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["MONITORING_AIOPS_CONFIG"],"bins":["monitoring-aiops"],"config":["~/.monitoring-aiops/config.yaml","~/.monitoring-aiops/secrets.enc"]},"optional":{"env":["MONITORING_AIOPS_MASTER_PASSWORD"]},"primaryEnv":"MONITORING_AIOPS_CONFIG","homepage":"https://github.com/AIops-tools/Monitoring-AIops","emoji":"📡","os":["macos","linux"]}}
 compatibility: >
-  Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at /api_jsonrpc.php, API token as Bearer header on 6.4+/7.x with a legacy auth-field fallback for 6.0) — preview. Each target in the config names its own platform, so one config can span all NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
+  Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at /api_jsonrpc.php, API token as Bearer header on 6.4+/7.x with a legacy auth-field fallback for 6.0). Each target in the config names its own platform, so one config can span all NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
   All write operations are audited to a local SQLite DB under ~/.monitoring-aiops/ (relocatable via MONITORING_AIOPS_HOME).
   Credentials: the Orion account password (SolarWinds), the PRTG API token, or the Zabbix API token is stored ENCRYPTED in ~/.monitoring-aiops/secrets.enc (Fernet/AES-128 + scrypt-derived key) — never plaintext on disk. Run 'monitoring-aiops init' to onboard (it asks for the platform), or 'monitoring-aiops secret set <target>' to add one. The store is unlocked by a master password from MONITORING_AIOPS_MASTER_PASSWORD (non-interactive/MCP/CI) or an interactive prompt (CLI on a TTY). A legacy plaintext env var MONITORING_<TARGET_NAME_UPPER>_SECRET is still honoured as a fallback with a deprecation warning (migrate with 'monitoring-aiops secret migrate'). The secret is used for HTTP Basic auth (SolarWinds) or as the PRTG/Zabbix API token at request time and held only in memory; secrets are never logged or echoed.
   Read-only SWQL passthrough (swql_query) is validated to accept SELECT statements only. State-changing operations pass through the @governed_tool decorator (pre-check + budget guard + audit + risk-tier gate). Destructive writes (unmanage_node, remove_node, zabbix_delete_maintenance) are high-risk with dry_run + double confirmation; unmanage_node records an inverse remanage undo descriptor, zabbix_delete_maintenance captures the window's FULL definition into priorState first. Suppression/maintenance writes are TIME-BOXED (mute_alerts, schedule_maintenance, schedule_maintenance_prtg, zabbix_create_maintenance require an end time / duration). mute_alerts→unmute, pause_sensor→resume, zabbix_create_maintenance→delete-that-maintenance-id record inverse undo descriptors. Zabbix item history is BOUNDED (capped window + point count).
   Webhooks: none — no outbound network calls beyond the configured SolarWinds SWIS / PRTG web API / Zabbix JSON-RPC endpoint.
   SSL: verify_ssl defaults to false-friendly for self-signed lab certs; enable for production.
   Transitive dependencies: httpx (HTTP client) and the MCP SDK. No post-install scripts or background services.
-  PREVIEW: mock-validated only. PRTG has a free perpetual 100-sensor Freeware edition with the API, and Zabbix is fully open source (a Docker-compose appliance is a 10-minute live check) — the easiest live checks; SolarWinds is a 30-day trial (mock-only past that — largest verification debt).
+  Validation status: behaviour is exercised against mocked SWIS/PRTG/Zabbix responses; not yet run against a live NOC (see docs/VERIFICATION.md). PRTG has a free perpetual 100-sensor Freeware edition with the API, and Zabbix is fully open source (a Docker-compose appliance is a 10-minute live check) — the easiest live checks; SolarWinds is a 30-day trial (mock-only past that — largest verification debt).
 ---
 
-# Monitoring AIops (preview)
+# Monitoring AIops
 
 > **Disclaimer**: Community-maintained open-source project, **not affiliated with, endorsed by, or sponsored by SolarWinds, Paessler, Zabbix, or any monitoring vendor.** SolarWinds, Orion, SWQL, THWACK, PRTG, Paessler and Zabbix are trademarks of their respective owners. Source at [github.com/AIops-tools/Monitoring-AIops](https://github.com/AIops-tools/Monitoring-AIops) under the MIT license.
 
-Governed network / infrastructure monitoring operations — **40 MCP tools**
+Governed network / infrastructure monitoring operations — **42 MCP tools**
 across **SolarWinds Orion** (SWIS REST + SWQL), **Paessler PRTG** (web API),
 and **Zabbix 6.x/7.x** (JSON-RPC 2.0),
 every one wrapped with the bundled `@governed_tool` harness: a local unified
@@ -39,9 +45,9 @@ plaintext on disk.
 
 > **Standalone**: the governance harness is bundled in the package
 > (`monitoring_aiops.governance`) — no external skill-family dependency.
-> **Preview / mock-only**: PRTG's free Freeware edition and an open-source
-> Zabbix appliance are the easiest live checks; SolarWinds is trial-only past
-> 30 days (largest verification debt).
+> PRTG's free Freeware edition and an open-source Zabbix appliance are the
+> easiest live checks; SolarWinds is trial-only past 30 days (largest
+> verification debt — see `docs/VERIFICATION.md`).
 
 ## What This Skill Does
 
@@ -58,6 +64,7 @@ plaintext on disk.
 | **Zabbix** | Zabbix | zabbix_problems/hosts/hostgroups/triggers/events/item_history/maintenances | 7 | read |
 | **Zabbix writes** | Zabbix | zabbix_create_maintenance (time-boxed; undo = delete that id) | 1 | write (med) |
 | | Zabbix | zabbix_delete_maintenance (priorState = full definition) | 1 | write (**high**) |
+| **Undo** | all | undo_list, undo_apply | 2 | undo |
 
 The canned SWQL library (`swql_library` lists them) answers the most-repeated
 THWACK questions directly: `nodes_down`, `flapping_interfaces`, `muted_report`,
@@ -106,36 +113,84 @@ or OT/industrial work to the appropriate other AIops-tools skill.
 
 ## Common Workflows
 
-### Answer a SWQL / THWACK question
+> **Secure by default (v0.2.0+)**: with no `~/.monitoring-aiops/rules.yaml`, high/critical operations are denied unless `MONITORING_AUDIT_APPROVED_BY` names an approver (set `MONITORING_AUDIT_RATIONALE` too). `monitoring-aiops init` seeds a starter rules.yaml; an operator-authored rules file is honoured as-is.
 
-1. `monitoring-aiops swql library` (or `swql_library`) → list the canned queries
-2. `monitoring-aiops swql canned nodes_down` (or `swql_canned`) → run it directly
-3. Need something not canned? `monitoring-aiops swql query "SELECT ..."` — the
-   passthrough validates it is a read-only SELECT before running
+### 1. The 3 a.m. alert storm — collapse it, then acknowledge what matters
 
-### Triage an alert storm
+1. `monitoring-aiops doctor` → confirm the NOC platform is actually reachable
+   (a "storm" is sometimes just a poller that lost the target)
+2. `monitoring-aiops overview` → the one-screen picture: down/warning counts
+   across the configured targets
+3. `monitoring-aiops alert list` (MCP: `active_alerts`) → deduped / rolled-up
+   entries; an interface-flap or node-down storm collapses into **one** entry
+   with a count instead of a wall of alerts
+4. `noc_rollup` → confirm whether the storm has a single upstream cause (one
+   node down taking its children with it) rather than N independent faults
+5. Acknowledge only the rolled-up entry that matters:
+   `monitoring-aiops alert ack <alert-id>` (SolarWinds `AlertActive.Acknowledge`
+   / PRTG `acknowledgealarm` / Zabbix `event.acknowledge`) — the prior ack state
+   is captured into priorState, and the ack is double-confirmed
+6. **Failure branch**: if `doctor` fails, do **not** acknowledge anything — you
+   would be silencing alerts you cannot currently see. Fix credentials with
+   `monitoring-aiops secret set <target>` first. If you acknowledged the wrong
+   alert, `monitoring-aiops undo list` → `undo apply <id>` restores the prior
+   ack state.
 
-1. `active_alerts` → deduped/rolled-up entries; an interface-flap or node-down
-   storm collapses into one entry with a count instead of a wall of alerts
-2. Pick the rolled-up entry that matters, then `alert_acknowledge` (SW
-   `AlertActive.Acknowledge` / PRTG `acknowledgealarm` / Zabbix
-   `event.acknowledge` — the prior ack state lands in priorState)
+### 2. "Which nodes are down and what's saturated?" (read-only)
 
-### Which nodes are down / worst CPU
+1. `noc_rollup` → down / warning counts plus the worst-CPU nodes in a single
+   call, so you do not page through a dashboard
+2. `topn cpu` (also `memory`, `latency`, `packetloss`) → the worst offenders
+   with the measured number
+3. `node_status <node>` → drill into one node; `interface_status` for a
+   suspected link problem, `volume_status` for a filling disk,
+   `application_status` for an app-layer fault
+4. `list_events` → what changed around the time things went bad
+5. `list_unmanaged` → check whether a "missing" node is simply unmanaged from a
+   previous maintenance window that was never reverted
+6. **Failure branch**: if a node shows down but is reachable from your shell,
+   the fault is in polling, not the node — check `list_muted` and
+   `list_unmanaged` before escalating to the network team.
 
-1. `noc_rollup` → down/warning counts + the worst-CPU nodes in one call
-2. Drill with `topn` (cpu/memory/latency/packetloss) or `swql_canned high_cpu_nodes`
+### 3. Planned maintenance: suppress noise time-boxed, then restore
 
-### Safely unmanage a node for maintenance (reversible)
+1. `node_status <node>` / `swql_canned nodes_down` → confirm you have the right
+   node and that it is currently healthy (so you can tell the difference
+   afterwards)
+2. Prefer the **time-boxed** path — it expires on its own:
+   `schedule_maintenance <node> --end ...` (SolarWinds),
+   `schedule_maintenance_prtg` (PRTG), or `zabbix_create_maintenance` (Zabbix,
+   undo → delete that maintenance id)
+3. If you genuinely need to unmanage instead:
+   `unmanage_node <node> --dry-run`, then re-run without `--dry-run` →
+   **high** risk, double confirmation, needs `MONITORING_AUDIT_APPROVED_BY`; it
+   records an inverse `remanage_node` undo descriptor
+4. For a single noisy sensor rather than a whole node: `pause_sensor` (PRTG,
+   undo → `resume_sensor`) or `mute_alerts` (undo → `unmute_alerts`)
+5. When maintenance ends: `remanage_node <node>` / `resume_sensor` /
+   `unmute_alerts`, or simply `monitoring-aiops undo apply <id>` to replay the
+   recorded inverse
+6. **Failure branch**: the classic failure here is *forgetting to restore* —
+   run `list_unmanaged` and `list_muted` at the end of every maintenance window;
+   anything still listed is silently unmonitored. Time-boxed maintenance windows
+   are preferred precisely because they fail safe.
 
-1. `swql_canned nodes_down` / `node_status` → confirm the node
-2. `schedule_maintenance <node> --end ...` (time-boxed) **or**
-   `unmanage_node <node> --dry-run` → preview the call
-3. Re-run without `--dry-run` (double-confirm; set `MONITORING_AUDIT_APPROVED_BY`
-- **Secure by default (v0.2.0+)**: with no `~/.monitoring-aiops/rules.yaml`, high/critical operations are denied unless `MONITORING_AUDIT_APPROVED_BY` names an approver (set `MONITORING_AUDIT_RATIONALE` too). `monitoring-aiops init` seeds a starter rules.yaml; an operator-authored rules file is honoured as-is.
-   + `MONITORING_AUDIT_RATIONALE` for the high-risk gate) — it records an inverse
-   remanage undo descriptor
-4. When maintenance ends, `remanage_node <node>` (or replay the recorded undo)
+### 4. Answer a bespoke NOC question with SWQL
+
+1. `monitoring-aiops swql library` (MCP: `swql_library`) → the canned queries,
+   so you do not hand-write what already exists
+2. `monitoring-aiops swql canned nodes_down` → run a canned one directly
+   (also `high_cpu_nodes` and the rest of the library)
+3. Not canned? `monitoring-aiops swql query "SELECT ..."` → the passthrough
+   **validates the statement is a read-only SELECT** before it runs; anything
+   else is refused
+4. Feed the result into an action — e.g. a node the query surfaced goes into
+   workflow 3 for a maintenance window
+5. **Failure branch**: a rejected query is almost always a non-SELECT statement
+   or a SWQL/SQL dialect slip (SWQL has no `*` expansion on some entities).
+   Start from the nearest canned query in `swql library` and modify it rather
+   than writing from scratch. The passthrough will not be talked into a write —
+   writes go through the governed tools, where they are audited.
 
 ## Governance & Safety
 

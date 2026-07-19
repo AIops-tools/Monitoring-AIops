@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from monitoring_aiops.governance import sanitize
+from monitoring_aiops.governance import opt_str, sanitize
 
 
 def rows(data: Any, key: str = "") -> list[dict]:
@@ -30,3 +30,19 @@ def as_obj(data: Any) -> dict:
 def s(value: Any, limit: int = 256) -> str:
     """Sanitize an arbitrary value to a bounded, injection-safe string."""
     return sanitize(str(value if value is not None else ""), limit)
+
+
+def opt_s(value: Any, limit: int = 256) -> str | None:
+    """Sanitize a value that may legitimately be absent, preserving that absence.
+
+    Companion to :func:`s`, which folds ``None`` into ``""``. That conflation is
+    invisible downstream: an empty string reads as "the platform returned this
+    column and it was blank" when the truth may be "Orion/PRTG/Zabbix never
+    returned the column at all" (a SWQL SELECT that omits it, a PRTG build that
+    names the field differently, an unset Zabbix host field). Neither a consumer
+    nor a smaller local model can recover the difference, and both invent one.
+
+    Use this for any optional platform field; keep :func:`s` for values that are
+    always present, such as a caller-supplied id being echoed back.
+    """
+    return opt_str(value, limit)

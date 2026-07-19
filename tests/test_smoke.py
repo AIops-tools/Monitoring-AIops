@@ -271,7 +271,12 @@ def test_acknowledge_alert_dispatches_solarwinds_verb():
 
 
 @pytest.mark.unit
-def test_alert_acknowledge_risk_is_low():
+def test_alert_acknowledge_is_a_write_tier():
+    """Acknowledging is a light triage action, but it is still a write.
+
+    risk_level is what read-only mode keys off, so a write marked "low" would
+    stay exposed with read-only mode turned on. Keep it above low.
+    """
     from mcp_server.tools import alerts as a
 
-    assert a.alert_acknowledge._risk_level == "low"
+    assert a.alert_acknowledge._risk_level == "medium"

@@ -1,6 +1,6 @@
 # monitoring-aiops setup & security guide
 
-> Preview / mock-only — not yet validated against a live NOC. **PRTG's free
+> Not yet validated against a live NOC (see `docs/VERIFICATION.md`). **PRTG's free
 > perpetual 100-sensor Freeware edition (with the API) and an open-source
 > Zabbix appliance (Docker compose) are the easiest live checks; SolarWinds is
 > a 30-day trial only — mock-only past that, the largest verification debt.**

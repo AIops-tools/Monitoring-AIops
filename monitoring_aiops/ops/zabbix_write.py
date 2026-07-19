@@ -28,7 +28,7 @@ def _dicts(result: Any) -> list[dict]:
 
 
 def acknowledge_event(conn: Any, event_id: str, message: str = "acknowledged") -> dict:
-    """[WRITE][low] Acknowledge one Zabbix problem event (with a message).
+    """[WRITE][medium] Acknowledge one Zabbix problem event (with a message).
 
     Captures the event's BEFORE acknowledged state into ``priorState``.
     """

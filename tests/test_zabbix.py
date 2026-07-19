@@ -230,7 +230,9 @@ def test_zabbix_item_history_is_bounded_and_resolves_value_type():
     assert out["hours"] == ops.MAX_HISTORY_HOURS  # window capped
     hist_params = conn.zabbix_rpc.call_args_list[1][0][1]
     assert hist_params["history"] == 0  # from item.get value_type
-    assert hist_params["limit"] == ops.MAX_HISTORY_POINTS  # point count capped
+    # Point count capped, plus one probe row so `truncated` is measured.
+    assert hist_params["limit"] == ops.MAX_HISTORY_POINTS + 1
+    assert out["limit"] == ops.MAX_HISTORY_POINTS and out["truncated"] is False
     assert "time_from" in hist_params  # bounded window, never full history
 
     missing = _mock_conn(**{"item.get": []})

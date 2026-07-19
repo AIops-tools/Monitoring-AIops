@@ -83,7 +83,13 @@ def test_interface_status_top_sorts_by_max_util_desc():
          "InPercentUtil": 50, "OutPercentUtil": 1},
     ])
     out = ops.interface_status(conn, top=2)
-    assert out["total"] == 2
+    # "total" is the genuine pre-cap count (3 interfaces existed), while
+    # "returned" is what this response carries. They must not be the same
+    # number when the result was capped — a total that merely echoes returned
+    # is the lying-count bug the envelope exists to prevent.
+    assert out["total"] == 3
+    assert out["returned"] == 2
+    assert out["truncated"] is True
     assert [i["interfaceCaption"] for i in out["interfaces"]] == ["gi2", "gi3"]
 
 

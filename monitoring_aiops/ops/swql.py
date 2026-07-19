@@ -78,18 +78,50 @@ def _validate(query: str) -> str:
     return q
 
 
+def _envelope(rows: list, limit: int, **extra: Any) -> dict:
+    """The one truncation envelope every row-capped read in this tool returns.
+
+    ``{"rows": [...], "returned": N, "limit": L, "truncated": bool}``. A bare
+    list — or a count that describes the pre-cap result while the rows are
+    capped — cannot say "there is more"; the consumer has to infer it from the
+    length happening to equal the limit, and a smaller local model reads that
+    coincidence as "that is everything". ``truncated`` here is *measured*
+    against the full result set, never guessed.
+
+    ``rowCount`` is kept as an alias of ``returned`` so existing consumers of
+    this tool's SWQL output do not break; both always describe the rows actually
+    returned.
+    """
+    capped = rows[:limit]
+    return {
+        "rows": capped,
+        "returned": len(capped),
+        "rowCount": len(capped),
+        "limit": limit,
+        "truncated": len(rows) > limit,
+        **extra,
+    }
+
+
 def run_query(conn: Any, query: str, params: dict | None = None, limit: int = _MAX_ROWS) -> dict:
-    """[READ] Run a validated read-only SWQL query (row-capped)."""
+    """[READ] Run a validated read-only SWQL query (row-capped, truncation flagged)."""
     q = _validate(query)
     result = conn.swql(q, params or {})
-    capped = result[:limit]
-    return {"rowCount": len(capped), "truncated": len(result) > limit, "rows": capped}
+    return _envelope(result, limit)
 
 
-def run_canned(conn: Any, name: str, params: dict | None = None) -> dict:
-    """[READ] Run a named canned query from the library."""
+def run_canned(
+    conn: Any, name: str, params: dict | None = None, limit: int = _MAX_ROWS
+) -> dict:
+    """[READ] Run a named canned query from the library (row-capped, truncation flagged).
+
+    Previously this capped the rows at ``_MAX_ROWS`` while reporting the *pre-cap*
+    count, so a caller reading 1000 rows and a rowCount of 4000 could not tell
+    which number described what it had been given. It now returns the same
+    envelope as :func:`run_query`.
+    """
     if name not in CANNED:
         raise KeyError(f"Unknown canned query '{name}'. Available: {', '.join(CANNED)}")
     merged = {"min": 85, **(params or {})}
     result = conn.swql(CANNED[name]["query"], merged)
-    return {"name": s(name), "rowCount": len(result), "rows": result[:_MAX_ROWS]}
+    return _envelope(result, limit, name=s(name))

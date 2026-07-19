@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from monitoring_aiops.ops._util import s
+from monitoring_aiops.ops._util import opt_s, s
 
 _EVENTS = (
     "SELECT TOP @n EventID, EventTime, Message, NetworkNode FROM Orion.Events "
@@ -45,18 +45,33 @@ def _node_ref(node_id: Any) -> str:
 
 
 def list_events(conn: Any, top: int = 50) -> dict:
-    """[READ] Most recent Orion events (newest first, capped at ``top``)."""
+    """[READ] Most recent Orion events (newest first, capped at ``top``).
+
+    One event past the cap is requested so ``truncated`` is *measured* rather
+    than guessed from the returned length happening to equal the cap.
+    """
+    requested = max(1, int(top))
     try:
-        raw = conn.swql(_EVENTS, {"n": top})
+        raw = conn.swql(_EVENTS, {"n": requested + 1})
+        truncated = len(raw) > requested
+        raw = raw[:requested]
         norm = [{
-            "id": s(r.get("EventID")),
-            "eventTime": s(r.get("EventTime")),
-            "message": s(r.get("Message")),
-            "node": s(r.get("NetworkNode")),
+            "id": opt_s(r.get("EventID")),
+            "eventTime": opt_s(r.get("EventTime")),
+            "message": opt_s(r.get("Message")),
+            "node": opt_s(r.get("NetworkNode")),
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
-    return {"total": len(norm), "events": norm}
+    return {
+        # No "total": raw was over-fetched by one and sliced, so the real
+        # server-side total is unknown. "truncated" reports that there is more;
+        # a "total" echoing "returned" would falsely claim this is all of it.
+        "events": norm,
+        "returned": len(norm),
+        "limit": requested,
+        "truncated": truncated,
+    }
 
 
 def list_unmanaged(conn: Any) -> dict:
@@ -64,10 +79,10 @@ def list_unmanaged(conn: Any) -> dict:
     try:
         raw = conn.swql(_UNMANAGED)
         norm = [{
-            "caption": s(r.get("Caption")),
+            "caption": opt_s(r.get("Caption")),
             "unmanaged": bool(r.get("UnManaged")),
-            "unmanageFrom": s(r.get("UnManageFrom")),
-            "unmanageUntil": s(r.get("UnManageUntil")),
+            "unmanageFrom": opt_s(r.get("UnManageFrom")),
+            "unmanageUntil": opt_s(r.get("UnManageUntil")),
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}
@@ -79,9 +94,9 @@ def list_muted(conn: Any) -> dict:
     try:
         raw = conn.swql(_MUTED)
         norm = [{
-            "entityUri": s(r.get("EntityUri")),
-            "suppressFrom": s(r.get("SuppressFrom")),
-            "suppressUntil": s(r.get("SuppressUntil")),
+            "entityUri": opt_s(r.get("EntityUri")),
+            "suppressFrom": opt_s(r.get("SuppressFrom")),
+            "suppressUntil": opt_s(r.get("SuppressUntil")),
         } for r in raw]
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200)}

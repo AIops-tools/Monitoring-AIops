@@ -63,6 +63,9 @@ def zabbix_triggers(only_problems: bool = True, target: Optional[str] = None) ->
 def zabbix_events(top: int = 50, target: Optional[str] = None) -> dict:
     """[READ] Most recent Zabbix trigger events (newest first).
 
+    Sets ``truncated: true`` when more events exist than were returned; re-run
+    with a higher ``top`` rather than treating the result as the whole history.
+
     Args:
         top: Number of events to return (newest first, capped at 500).
         target: Zabbix target name from config; omit for the default.
@@ -77,6 +80,9 @@ def zabbix_item_history(
     item_id: str, hours: int = 24, limit: int = 100, target: Optional[str] = None
 ) -> dict:
     """[READ] Bounded metric detail for one Zabbix item (meta + history points).
+
+    Sets ``truncated: true`` when the item had more points in the window than
+    were returned — the series you got is the most recent slice, not all of it.
 
     Args:
         item_id: Zabbix item id (from the host's items).

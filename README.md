@@ -1,6 +1,6 @@
 <!-- mcp-name: io.github.AIops-tools/monitoring-aiops -->
 
-# Monitoring AIops (preview)
+# Monitoring AIops
 
 > **Disclaimer**: Community-maintained open-source project. **Not affiliated with, endorsed by, or sponsored by SolarWinds, Paessler, Zabbix, or any monitoring vendor.** SolarWinds, Orion, SWQL, THWACK, PRTG, Paessler and Zabbix are trademarks of their respective owners. MIT licensed.
 
@@ -11,7 +11,6 @@ HTTP Basic auth), **Paessler PRTG** (web API, port 443/8080, API token), and
 a **built-in governance harness**: unified audit log, policy engine,
 token/runaway budget guard, undo-token recording, and graduated-autonomy risk
 tiers. One config can span all NOCs; each target names its own `platform`.
-**Preview — mock-validated only, not yet verified against a live NOC.**
 
 ## What it does
 
@@ -34,7 +33,47 @@ that follow:
   the destructive ones gated with **dry-run + double-confirm**. Suppression and
   maintenance writes are **time-boxed** (they require an end time / duration).
 
-## Capability matrix (40 MCP tools)
+## Security: read-only mode
+
+This tool is meant to be handed to an AI agent, so its safety story is enforced
+by the server rather than requested in a prompt:
+
+```bash
+export MONITORING_READ_ONLY=1
+```
+
+With that set, the **13 write tools are never registered**. An MCP client
+lists **29 tools instead of 42** — the writes are not hidden, not
+gated behind a flag, and not merely refused when called. They are absent from
+the session. A model cannot invoke a tool it was never offered, and cannot be
+argued into one.
+
+That distinction is the whole point. A tool that exists but refuses still invites
+retry loops and "I'll describe the call instead" behaviour from smaller models,
+and it leaves a reviewer trusting a promise. An absent tool is a fact you can
+check: connect, list the tools, and see that the writes are not there.
+
+Enforcement is two layers deep, so the switch cannot be sidestepped by changing
+entry point:
+
+| Layer | What it does | Covers |
+|---|---|---|
+| `@governed_tool` harness | refuses every non-read operation outright | MCP, CLI, and in-process callers |
+| MCP registration | write tools are removed from `list_tools()` | anything speaking MCP |
+
+Read operations are unaffected, and every call is still audited to
+`~/.monitoring-aiops/audit.db`.
+
+> The read/write split is derived from each tool's declared `risk_level`, and a
+> test asserts that this never disagrees with the `[READ]`/`[WRITE]` tag in the
+> tool's own documentation — so a write can't quietly present itself as a read.
+
+Running a smaller / local model? See
+[agent-guardrails.md](skills/monitoring-aiops/references/agent-guardrails.md) — it lists
+the guardrails this tool now enforces for you (so you don't spend prompt budget
+restating them) and gives a ready-made system prompt for what's left.
+
+## Capability matrix (42 MCP tools)
 
 | Group | Platform | Tools | Count | R/W |
 |-------|----------|-------|:-----:|:---:|
@@ -50,8 +89,9 @@ that follow:
 | **Zabbix reads** | Zabbix | `zabbix_problems`, `zabbix_hosts`, `zabbix_hostgroups`, `zabbix_triggers`, `zabbix_events`, `zabbix_item_history`, `zabbix_maintenances` | 7 | read |
 | **Zabbix writes** | Zabbix | `zabbix_create_maintenance` | 1 | write (med) |
 | | Zabbix | `zabbix_delete_maintenance` | 1 | write (**high**) |
+| **Undo** | all | `undo_list`, `undo_apply` | 2 | undo |
 
-The CLI exposes a convenience subset; the full 40-tool surface is via the MCP
+The CLI exposes a convenience subset; the full 42-tool surface is via the MCP
 server.
 
 ## Quick start
@@ -97,8 +137,9 @@ Every MCP tool passes through the bundled `@governed_tool` harness:
   history, maintenance windows (create/delete), and event acknowledge via the
   cross-platform `alert_acknowledge`. Template/discovery/user CRUD and
   `trend.get` are not covered — open an issue if you need them.
-- **Preview / mock-only.** All behaviour is validated against mocked
-  SWIS/PRTG/Zabbix responses. **PRTG has a free perpetual 100-sensor Freeware
+- **Validation status.** Behaviour is exercised by the test suite against mocked
+  SWIS/PRTG/Zabbix responses; it has not been run against a live NOC (see
+  [`docs/VERIFICATION.md`](docs/VERIFICATION.md)). **PRTG has a free perpetual 100-sensor Freeware
   edition with the API, and Zabbix is fully open source (a Docker-compose
   appliance is a 10-minute live check) — the easiest live checks.** SolarWinds
   is a 30-day trial only; past the trial this tool is **mock-only, which is

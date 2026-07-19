@@ -25,28 +25,39 @@ def swql_library(target: Optional[str] = None) -> list:
 @mcp.tool()
 @governed_tool(risk_level="low")
 @tool_errors("dict")
-def swql_canned(name: str, params: Optional[dict] = None, target: Optional[str] = None) -> dict:
+def swql_canned(name: str, params: Optional[dict] = None, target: Optional[str] = None,
+                limit: int = 1000) -> dict:
     """[READ] Run a named canned SWQL query (e.g. nodes_down, flapping_interfaces).
+
+    Returns the same envelope as swql_query: ``{"rows": [...], "returned": N,
+    "limit": L, "truncated": bool}``. ``truncated`` is measured against the full
+    result set — do not treat a capped result as the complete answer.
 
     Args:
         name: Canned query name (from swql_library).
         params: Optional query params (e.g. {"min": 90} for a threshold).
         target: SolarWinds target name from config; omit for the default.
+        limit: Maximum rows to return. Default 1000.
     """
-    return ops.run_canned(_get_connection(target), name, params)
+    return ops.run_canned(_get_connection(target), name, params, limit)
 
 
 @mcp.tool()
 @governed_tool(risk_level="low")
 @tool_errors("dict")
-def swql_query(query: str, params: Optional[dict] = None, target: Optional[str] = None) -> dict:
+def swql_query(query: str, params: Optional[dict] = None, target: Optional[str] = None,
+               limit: int = 1000) -> dict:
     """[READ] Run a validated read-only SWQL SELECT (row-capped).
 
     Only SELECT is permitted — state changes go through the governed write tools.
+    Returns ``{"rows": [...], "returned": N, "limit": L, "truncated": bool}``;
+    when ``truncated`` is true the query matched more rows than were returned —
+    narrow the query or raise the limit rather than treating it as the full set.
 
     Args:
         query: A SWQL SELECT statement.
         params: Optional named parameters referenced as @name in the query.
         target: SolarWinds target name from config; omit for the default.
+        limit: Maximum rows to return. Default 1000.
     """
-    return ops.run_query(_get_connection(target), query, params)
+    return ops.run_query(_get_connection(target), query, params, limit)

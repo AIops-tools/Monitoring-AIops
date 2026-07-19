@@ -23,10 +23,10 @@ def active_alerts(target: Optional[str] = None) -> dict:
 
 
 @mcp.tool()
-@governed_tool(risk_level="low")
+@governed_tool(risk_level="medium")
 @tool_errors("dict")
 def alert_acknowledge(alert_id: str, target: Optional[str] = None) -> dict:
-    """[WRITE][risk=low] Acknowledge one active alert (reversible triage action).
+    """[WRITE][risk=medium] Acknowledge one active alert (reversible triage action).
 
     Args:
         alert_id: Alert id (AlertActiveID on SolarWinds, sensor objid on PRTG).
