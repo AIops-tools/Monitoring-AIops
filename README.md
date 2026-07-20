@@ -5,8 +5,9 @@
 > **Disclaimer**: Community-maintained open-source project. **Not affiliated with, endorsed by, or sponsored by SolarWinds, Paessler, Zabbix, or any monitoring vendor.** SolarWinds, Orion, SWQL, THWACK, PRTG, Paessler and Zabbix are trademarks of their respective owners. MIT licensed.
 
 Governed AI-ops for **network / infrastructure monitoring** across three NOC
-platforms in one server — **SolarWinds Orion** (SWIS REST + SWQL, port 17778,
-HTTP Basic auth), **Paessler PRTG** (web API, port 443/8080, API token), and
+platforms in one server — **SolarWinds Orion** (SWIS REST + SWQL, port 17774
+with an automatic fallback to the legacy 17778, HTTP Basic auth), **Paessler
+PRTG** (web API, port 443/8080, API token), and
 **Zabbix 6.x/7.x** (JSON-RPC 2.0 at `/api_jsonrpc.php`, API token) — with
 a **built-in governance harness**: unified audit log, policy engine,
 token/runaway budget guard, undo-token recording, and graduated-autonomy risk

@@ -23,6 +23,17 @@ optional `scheme:`.
 
 - **SolarWinds Orion** and **PRTG** — both platform branches, including all the
   SWQL machinery. Both need licensed servers; this is the largest gap here.
+- **The SWIS port default and its fallback.** The default moved to **17774**
+  (the SWIS REST port from Orion 2023.1 on, with 17778 documented as deprecated
+  and slated for removal); a defaulted port that refuses the connection retries
+  **once** on 17778 and then remembers which one answered. An operator-set
+  `port:` is used verbatim and never probed. All of that is modelled from
+  SolarWinds' documentation and exercised only against a simulated client —
+  **no real Orion has answered on either port here**. Status: **UNKNOWN —
+  pending live**. What a live run must distinguish: a 2023.1+ Orion should
+  answer on 17774 with **no** fallback attempt (the probe costs a round trip),
+  and a pre-2023.1 Orion should end up on 17778 and stay there for the rest of
+  the session.
 - Zabbix **at scale**: the lab server had no hosts or problems, so the reads are
   verified as executing and well-shaped, not as classifying a real estate. In
   particular, Zabbix applies a server-side `search_limit` (default 1000) that the

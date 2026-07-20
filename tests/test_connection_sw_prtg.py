@@ -191,7 +191,9 @@ def test_http_errors_map_to_teaching_messages(monkeypatch, status, needle):
 def test_transport_error_becomes_reachability_teaching_error(monkeypatch):
     from monitoring_aiops.connection import MonitoringApiError
 
-    conn, _ = _sw(monkeypatch, [httpx.ConnectError("refused")])
+    # This target defaults its port, so a refusal costs one 17778 fallback probe
+    # before it gives up (see test_swis_port_fallback.py) — hence two errors.
+    conn, _ = _sw(monkeypatch, [httpx.ConnectError("refused")] * 2)
     with pytest.raises(MonitoringApiError) as exc:
         conn.swql("SELECT 1")
     msg = str(exc.value)

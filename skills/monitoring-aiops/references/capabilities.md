@@ -1,7 +1,8 @@
 # monitoring-aiops capabilities
 
 > **42 MCP tools** (30 read, 10 write, 2 undo) across SolarWinds
-> Orion (SWIS REST + SWQL, port 17778, HTTP Basic auth), Paessler PRTG (web
+> Orion (SWIS REST + SWQL, port 17774 with a legacy-17778 fallback, HTTP
+> Basic auth), Paessler PRTG (web
 > API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at
 > `/api_jsonrpc.php`, API token — Bearer header on 6.4+/7.x, legacy `auth`
 > field fallback for 6.0). Each config target names its own `platform`.

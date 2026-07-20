@@ -131,7 +131,7 @@ def test_config_rejects_bad_platform_and_defaults_port():
     with pytest.raises(ValueError):
         TargetConfig(name="x", platform="nagios", host="h")
     sw = TargetConfig(name="sw", platform="solarwinds", host="h")
-    assert sw.port == 17778
+    assert sw.port == 17774  # SWIS REST port on Orion 2023.1+ (17778 is legacy)
     prtg = TargetConfig(name="p", platform="prtg", host="h")
     assert prtg.port == 443
     zbx = TargetConfig(name="z", platform="zabbix", host="h")

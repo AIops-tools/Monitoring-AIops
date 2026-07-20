@@ -14,8 +14,12 @@ uv tool install monitoring-aiops
 ## 2. Get a credential
 
 - **SolarWinds Orion** — an Orion account (username + password) with the Orion
-  API enabled. monitoring-aiops talks to SWIS REST + SWQL on port **17778** with
-  **HTTP Basic auth**.
+  API enabled. monitoring-aiops talks to SWIS REST + SWQL with **HTTP Basic
+  auth** on port **17774** — the SWIS port since Orion 2023.1, which deprecated
+  the old **17778** and slated it for removal. Leave `port` unset and a
+  pre-2023.1 server is still reached: the first connection failure triggers one
+  retry on 17778, and the port that answered is reused for that session. Set
+  `port:` yourself and it is used verbatim, with no fallback probing.
 - **PRTG** — an **API token** (Setup → Account Settings → API Keys, or a
   passhash). PRTG's web API is on port **443/8080**. A free Freeware edition
   (100 sensors, perpetual) exposes the same API — the easiest way to self-test.
@@ -33,8 +37,10 @@ monitoring-aiops init
 ```
 
 The wizard asks, per target, for the **platform** (`solarwinds` / `prtg` /
-`zabbix`), the **host**, the **port** (defaults 17778 for SolarWinds, 443 for
-PRTG and Zabbix), the **Orion username** (SolarWinds only), and the **secret**
+`zabbix`), the **host**, the **port** (defaults 17774 for SolarWinds, 443 for
+PRTG and Zabbix — accept the default and no `port:` key is written, so the
+default keeps tracking the platform), the **Orion username** (SolarWinds only),
+and the **secret**
 — the Orion account password, the PRTG API token, or the Zabbix API token.
 Non-secret connection details go to `~/.monitoring-aiops/config.yaml`; the
 secret is stored **encrypted** into `~/.monitoring-aiops/secrets.enc`. Example
@@ -45,7 +51,8 @@ targets:
   - name: orion1
     platform: solarwinds
     host: 10.0.0.20
-    port: 17778
+    # port omitted -> 17774 (Orion 2023.1+), falling back to 17778 once if
+    # nothing answers. Set it here only to pin a non-standard SWIS port.
     username: admin
     verify_ssl: false          # self-signed lab certs only
   - name: prtg1

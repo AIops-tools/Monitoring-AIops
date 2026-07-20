@@ -46,7 +46,7 @@ NOC1 = {
     "name": "noc1",
     "platform": "solarwinds",
     "host": "orion.example.com",
-    "port": 17778,
+    "port": 17774,
     "username": "admin",
 }
 PRTG1 = {"name": "prtg1", "platform": "prtg", "host": "prtg.example.com", "port": 443}

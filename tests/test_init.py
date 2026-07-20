@@ -6,8 +6,10 @@ hidden secret prompt is fed by patching ``getpass``. The trailing doctor run
 is either declined via stdin or patched out.
 
 Monitoring specifics: a platform prompt (solarwinds default / prtg / zabbix),
-a per-platform port default (17778 / 443 / 443), and an Orion-username prompt
-that only appears for solarwinds targets.
+a per-platform port default (17774 / 443 / 443), and an Orion-username prompt
+that only appears for solarwinds targets. Accepting the port default writes NO
+``port:`` key — pinning it would freeze today's default into the config and
+disable the SolarWinds 17774 → 17778 fallback; a typed port IS written.
 """
 
 from __future__ import annotations
@@ -54,7 +56,6 @@ def test_init_solarwinds_writes_config_and_encrypted_secret(isolated_home, hidde
             "name": "noc1",
             "platform": "solarwinds",
             "host": "orion.example.com",
-            "port": 17778,
             "username": "admin",
             "verify_ssl": True,  # TLS confirm default=True accepted as-is
         }
@@ -76,7 +77,6 @@ def test_init_prtg_skips_username_and_defaults_port(isolated_home, hidden_secret
             "name": "prtg1",
             "platform": "prtg",
             "host": "prtg.example.com",
-            "port": 443,
             "username": "",
             "verify_ssl": True,
         }
@@ -104,12 +104,43 @@ def test_init_zabbix_skips_username_and_defaults_port(isolated_home, hidden_secr
             "name": "zbx1",
             "platform": "zabbix",
             "host": "zabbix.example.com",
-            "port": 443,
             "username": "",
             "verify_ssl": True,
         }
     ]
     assert ss.SecretStore.unlock(MASTER_PW).get("zbx1") == NOC_SECRET
+
+
+def test_init_omits_port_when_the_default_is_accepted(isolated_home, hidden_secret):
+    """Accepting the prompt's default is not a stated intent. Writing it out
+    would pin today's default forever and, for SolarWinds, switch off the
+    17774 → 17778 fallback for exactly the users least able to debug it."""
+    result = runner.invoke(app, ["init"], input=WIZARD_INPUT_SW)
+    assert result.exit_code == 0, result.output
+    raw = yaml.safe_load((isolated_home / "config.yaml").read_text("utf-8"))
+    assert "port" not in raw["targets"][0]
+
+    # ...and the resolved target still lands on the modern SWIS port.
+    from monitoring_aiops.config import load_config
+
+    target = load_config(isolated_home / "config.yaml").get_target("noc1")
+    assert target.port == 17774
+    assert target.port_is_explicit is False
+
+
+def test_init_pins_a_port_the_operator_actually_typed(isolated_home, hidden_secret):
+    # Same solarwinds script, but type 9999 at the port prompt.
+    result = runner.invoke(
+        app, ["init"], input="noc1\n\norion.example.com\n9999\n\n\n\nn\n"
+    )
+    assert result.exit_code == 0, result.output
+    raw = yaml.safe_load((isolated_home / "config.yaml").read_text("utf-8"))
+    assert raw["targets"][0]["port"] == 9999
+
+    from monitoring_aiops.config import load_config
+
+    target = load_config(isolated_home / "config.yaml").get_target("noc1")
+    assert (target.port, target.port_is_explicit) == (9999, True)
 
 
 def test_init_seeds_default_policy_rules(isolated_home, hidden_secret):

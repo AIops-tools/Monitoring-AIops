@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -35,7 +35,15 @@ PLATFORMS = (PLATFORM_SOLARWINDS, PLATFORM_PRTG, PLATFORM_ZABBIX)
 
 # Sensible default ports per platform (SolarWinds SWIS REST / PRTG web server /
 # Zabbix frontend, which serves /api_jsonrpc.php).
-DEFAULT_PORTS = {PLATFORM_SOLARWINDS: 17778, PLATFORM_PRTG: 443, PLATFORM_ZABBIX: 443}
+#
+# SolarWinds: Orion 2023.1 moved the SWIS REST endpoint to 17774 and documents
+# the old 17778 as deprecated and slated for removal, so the default is the
+# modern port. Pre-2023.1 Orion serves only 17778, so the connection layer
+# probes it once as a fallback (see ``MonitoringConnection``) — but ONLY when
+# the port was defaulted here, never when the operator set one.
+SWIS_PORT = 17774
+SWIS_LEGACY_PORT = 17778
+DEFAULT_PORTS = {PLATFORM_SOLARWINDS: SWIS_PORT, PLATFORM_PRTG: 443, PLATFORM_ZABBIX: 443}
 
 SECRET_ENV_PREFIX = "MONITORING_"  # nosec B105 — env-var name, not a secret
 SECRET_ENV_SUFFIX = "_SECRET"  # nosec B105 — env-var name, not a secret
@@ -96,6 +104,16 @@ class TargetConfig:
     record-layer error as the only clue.
     """
 
+    port_is_explicit: bool = field(init=False, default=False)
+    """True when the operator set ``port:`` themselves, rather than defaulting.
+
+    ``__post_init__`` normalises a missing port to the platform default, which
+    would otherwise erase the difference between "the operator asked for 17774"
+    and "nobody said, so we picked 17774". The SolarWinds legacy-port fallback
+    needs that difference: a stated port is used verbatim and never probed,
+    because the operator already told us where SWIS lives.
+    """
+
     def __post_init__(self) -> None:
         if self.platform not in PLATFORMS:
             raise ValueError(
@@ -107,6 +125,7 @@ class TargetConfig:
                 f"Target '{self.name}': scheme must be 'https' or 'http', "
                 f"got '{self.scheme}'."
             )
+        object.__setattr__(self, "port_is_explicit", bool(self.port))
         if not self.port:
             object.__setattr__(self, "port", DEFAULT_PORTS[self.platform])
 

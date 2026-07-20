@@ -138,10 +138,16 @@ def init_cmd() -> None:
             "name": name,
             "platform": platform,
             "host": host,
-            "port": port,
             "username": username,
             "verify_ssl": verify_ssl,
         }
+        if port != DEFAULT_PORTS[platform]:
+            # Only a port the operator actually typed is pinned. Accepting the
+            # prompt's default is not a stated intent, and writing it out would
+            # freeze today's default into the config — for SolarWinds that would
+            # also disable the 17774 → 17778 fallback, which is exactly the case
+            # a wizard-created config needs most.
+            entry["port"] = port
         targets.append(entry)
         existing_names.add(name)
         _write_targets(targets)
