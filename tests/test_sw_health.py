@@ -52,7 +52,9 @@ def test_noc_rollup_returns_count_keys_and_is_resilient():
     conn.target.platform = "solarwinds"
     conn.swql.side_effect = RuntimeError("SWIS unavailable")
     out = ops.noc_rollup(conn)
-    assert set(out) == {"nodesDown", "nodesWarning", "interfacesDown", "topCpu"}
+    assert set(out) == {
+        "nodesDown", "nodesWarning", "interfacesDown", "topCpu", "topCpuError",
+    }
     assert out["nodesDown"] == 0
     assert out["nodesWarning"] == 0
     assert out["interfacesDown"] == 0

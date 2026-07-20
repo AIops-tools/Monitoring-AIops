@@ -1,60 +1,16 @@
-# Release notes — monitoring-aiops 0.4.0
+# Release notes — monitoring-aiops 0.4.1
 
-Previous release: 0.3.0.
+Previous release: 0.4.0.
 
-## Headline: read-only mode
+## Fixed: `topn` reported a failed query as "no nodes under load"
 
-```bash
-export MONITORING_READ_ONLY=1
-```
+It swallowed every exception and returned an empty list. A failed SWQL query and
+"nothing is hot right now" are **opposite findings**, and rendering them identically
+is exactly the kind of misreport this line exists to prevent.
 
-With this set the **13 write tools are never registered** — an MCP
-client lists **29 tools instead of 42**. The writes are not hidden
-behind a flag and not merely refused on call: they are absent from the session,
-so a model cannot invoke one and cannot be argued into one. For a reviewer this
-is checkable rather than promised — connect, list the tools, and the writes are
-not there.
+**BREAKING** — `topn` now returns an envelope:
+`{"nodes": [...], "returned": N, "metric": str, "error": str | None}`.
 
-Enforcement is two layers deep: the `@governed_tool` harness refuses every
-non-read operation (covering the CLI and in-process callers too), and the MCP
-server removes write tools from `list_tools()`. Changing entry point does not
-get around it.
-
-### Security fix included in this release
-
-1 tool(s) documented as writes were carrying `risk_level="low"`:
-`alert_acknowledge`.
-
-Because the read/write split keys off `risk_level`, read-only mode would have
-left them **exposed and able to execute real writes**. They are now `medium`,
-and a new test asserts `risk_level` can never again disagree with a tool's own
-`[READ]`/`[WRITE]` documentation.
-
-## BREAKING — return shapes changed
-
-This release changes payloads that callers may be parsing. All three changes exist
-to stop a result from misrepresenting itself:
-
-1. **Absent fields are now `null`, not `""`.** A missing value and an empty value
-   were previously indistinguishable, which invited consumers to invent the
-   difference. Keys are still always present — only the value may be null.
-2. **Anything with a `limit` now returns an envelope** —
-   `{"<items>": [...], "returned": N, "limit": L, "truncated": bool}`. Truncation is
-   *measured* (one extra row is fetched), never inferred from the page happening to
-   be full. Where a genuine pre-cap total is knowable it is reported as `total`;
-   where it isn't, `total` is deliberately omitted rather than echoing `returned`.
-3. **`risk_level` changed on some tools** (see above). If your `rules.yaml` matches
-   on risk level, re-check those rules.
-
-## Also in this release
-
-- **`docs/VERIFICATION.md`** — what the mock suite actually guarantees, a live
-  verification checklist, and the criteria for claiming this tool verified.
-- **`skills/monitoring-aiops/references/agent-guardrails.md`** — for driving this tool with a
-  smaller / local model: which guardrails are now enforced for you, and a
-  ready-made system prompt for the rest.
-- Expanded operator playbooks in the skill documentation.
-- The advertised tool count now matches what an MCP client actually lists
-  (it includes `undo_list` / `undo_apply`), and a release gate keeps it honest.
-- The `(preview)` label has been dropped. It never meant unreleased; verification
-  status now lives in `docs/VERIFICATION.md` where it can be specific.
+`noc_rollup` keeps its shape — `topCpu` is still the node list — but gained
+`topCpuError`, so a failed sub-query is not shown as an empty top-3 in the one-shot
+glance. Its SWQL call order is unchanged.

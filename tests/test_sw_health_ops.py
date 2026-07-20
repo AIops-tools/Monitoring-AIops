@@ -130,16 +130,25 @@ def test_topn_builds_row_clause_query_and_coerces_values():
         {"Caption": "warm", "CPULoad": 70},
     ])
     out = ops.topn(conn, "cpu", n=5)
-    assert out == [{"caption": "hot", "value": 99.0}, {"caption": "warm", "value": 70.0}]
+    assert out["nodes"] == [
+        {"caption": "hot", "value": 99.0},
+        {"caption": "warm", "value": 70.0},
+    ]
+    assert out["returned"] == 2 and out["error"] is None
     query = conn.swql.call_args.args[0]
     assert "ORDER BY CPULoad DESC WITH ROWS 1 TO 5" in query
 
 
 @pytest.mark.unit
-def test_topn_resilient_returns_empty_on_failure():
+def test_topn_reports_failure_instead_of_empty_list():
+    """A failed SWQL query and "no nodes under load" are opposite findings."""
     from monitoring_aiops.ops import sw_health as ops
 
-    assert ops.topn(_conn(side_effect=RuntimeError("boom")), "memory") == []
+    out = ops.topn(_conn(side_effect=RuntimeError("boom")), "memory")
+    assert out["nodes"] == []
+    assert out["returned"] == 0
+    assert out["metric"] == "memory"
+    assert "boom" in out["error"]
 
 
 @pytest.mark.unit

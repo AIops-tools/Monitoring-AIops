@@ -174,8 +174,14 @@ def application_status(conn: Any) -> dict:
     return {"total": len(apps), "applications": apps}
 
 
-def topn(conn: Any, metric: str = "cpu", n: int = 10) -> list[dict]:
-    """[READ] Top-N nodes by a health metric (cpu/memory/latency/packetloss)."""
+def topn(conn: Any, metric: str = "cpu", n: int = 10) -> dict:
+    """[READ] Top-N nodes by a health metric (cpu/memory/latency/packetloss).
+
+    Returns {"nodes": [...], "returned": N, "metric": str, "error": str | None}.
+    A failed query is reported in ``error`` rather than returned as an empty
+    list — "the SWQL query failed" and "no nodes are under load" are opposite
+    findings and must not render identically.
+    """
     if metric not in _TOPN_METRICS:
         raise ValueError(
             f"Unknown metric '{metric}'. Choose one of: {', '.join(_TOPN_METRICS)}."
@@ -187,9 +193,12 @@ def topn(conn: Any, metric: str = "cpu", n: int = 10) -> list[dict]:
     query = f"SELECT Caption, {column} FROM Orion.Nodes {rows_clause}"  # nosec B608
     try:
         raw = conn.swql(query)
-    except Exception:  # noqa: BLE001 — resilient: empty on failure
-        return []
-    return [{"caption": opt_s(r.get("Caption")), "value": _num(r.get(column))} for r in raw]
+    except Exception as exc:  # noqa: BLE001 — reported, never silently swallowed
+        return {"nodes": [], "returned": 0, "metric": metric, "error": s(exc, 200)}
+    nodes = [
+        {"caption": opt_s(r.get("Caption")), "value": _num(r.get(column))} for r in raw
+    ]
+    return {"nodes": nodes, "returned": len(nodes), "metric": metric, "error": None}
 
 
 def _count(conn: Any, where: str, entity: str = "Orion.Nodes") -> int:
@@ -213,9 +222,18 @@ def _count(conn: Any, where: str, entity: str = "Orion.Nodes") -> int:
 
 def noc_rollup(conn: Any) -> dict:
     """[READ] One-shot NOC glance: down/warning counts + top-3 worst CPU nodes."""
+    # Counts first, then topn — the original query order, kept deliberately so
+    # the sequence of SWQL calls this issues does not change.
+    down = _count(conn, "Status=2")
+    warning = _count(conn, "Status=3")
+    ifaces_down = _count(conn, "Status=2", "Orion.NPM.Interfaces")
+    top = topn(conn, "cpu", 3)
     return {
-        "nodesDown": _count(conn, "Status=2"),
-        "nodesWarning": _count(conn, "Status=3"),
-        "interfacesDown": _count(conn, "Status=2", "Orion.NPM.Interfaces"),
-        "topCpu": topn(conn, "cpu", 3),
+        "nodesDown": down,
+        "nodesWarning": warning,
+        "interfacesDown": ifaces_down,
+        # Expose the node list, but carry the probe's error forward so a failed
+        # sub-query is never shown as "no hot nodes" in the one-shot glance.
+        "topCpu": top["nodes"],
+        "topCpuError": top["error"],
     }

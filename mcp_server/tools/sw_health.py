@@ -78,8 +78,12 @@ def application_status(target: Optional[str] = None) -> dict:
 @mcp.tool()
 @governed_tool(risk_level="low")
 @tool_errors("dict")
-def topn(metric: str = "cpu", n: int = 10, target: Optional[str] = None) -> list:
+def topn(metric: str = "cpu", n: int = 10, target: Optional[str] = None) -> dict:
     """[READ] Top-N SolarWinds nodes by a health metric.
+
+    Returns {"nodes": [...], "returned": N, "metric": str, "error": str | None}.
+    A non-null "error" means the SWQL query failed — the opposite finding from
+    "no nodes are under load", so never report one as the other.
 
     Args:
         metric: One of cpu, memory, latency, packetloss.
