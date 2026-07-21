@@ -56,5 +56,5 @@ monitoring-aiops alert ack <alert_id>            # acknowledge an alert / PRTG a
   health, PRTG, Zabbix, and governed-write tools (mute/unmute,
   schedule_maintenance, unmanage/remanage/remove node, PRTG pause/resume,
   Zabbix maintenance create/delete) are exposed through the MCP server.
-  High-risk MCP writes honour `MONITORING_AUDIT_APPROVED_BY` /
-  `MONITORING_AUDIT_RATIONALE` and use dry-run + double-confirm.
+  High-risk MCP writes use dry-run + double-confirm; `MONITORING_AUDIT_APPROVED_BY`
+  / `MONITORING_AUDIT_RATIONALE` are recorded on the audit row when set.

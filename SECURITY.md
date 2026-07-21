@@ -39,21 +39,24 @@ Every MCP tool runs through the bundled `@governed_tool` harness
   `MONITORING_MAX_TOOL_SECONDS`) plus an on-by-default guard that trips a tight
   poll/retry loop, preventing unbounded API consumption (e.g. polling a slow
   session).
-- **Graduated risk tiers** — `~/.monitoring-aiops/rules.yaml` `risk_tiers` gate
-  writes by environment/tag; the highest tiers require a recorded approver.
+- **Risk-tier labelling** — each tool's declared `risk_level` is carried into
+  the audit row as a descriptive tier; it is a label, not a gate. There is no
+  read-only switch, policy file, or approval gate — whether a write is permitted
+  is the agent's judgement or the connecting account's monitoring scope.
 - **Undo-token recording** — reversible writes capture the BEFORE state and
   record an inverse descriptor (e.g. `mute_alerts`→`unmute_alerts`,
   `unmanage_node`→`remanage_node`, `pause_sensor`→`resume_sensor`) so the change
   can be rolled back.
 
 ### State-Changing Operations
-Destructive writes — `unmanage_node`, `remove_node` — are `risk_level=high`,
-accept a `dry_run` preview, and (under `risk_tiers`) require a recorded approver
-(`MONITORING_AUDIT_APPROVED_BY` + `MONITORING_AUDIT_RATIONALE`). Suppression and
+Destructive writes — `unmanage_node`, `remove_node` — are `risk_level=high` and
+accept a `dry_run` preview (plus double confirmation at the CLI). Suppression and
 maintenance writes (`mute_alerts`, `schedule_maintenance`, `pause_sensor`,
 `schedule_maintenance_prtg`) are `risk_level=medium` and **time-boxed** — they
 require an end time / duration (no open-ended suppression). Acknowledge is
 `risk_level=low`. Reversible writes capture before-state and record an undo token.
+`MONITORING_AUDIT_APPROVED_BY` + `MONITORING_AUDIT_RATIONALE` are optional audit
+annotations, recorded on the row when set but never required.
 
 ### SSL/TLS Verification
 `verify_ssl` defaults to true; disable only for self-signed lab certificates.

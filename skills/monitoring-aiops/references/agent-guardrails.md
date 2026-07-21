@@ -9,17 +9,31 @@ the tool now enforces them itself.
 The distinction matters. A guardrail in a prompt is a request. A guardrail in the
 harness is a guarantee. Anything below that we could move into the harness, we did.
 
-## What the tool now enforces — do not waste prompt budget on these
+## Authorization is not this tool's job — decide it where it belongs
+
+Whether a write should happen is your decision, or the account's. The tool does
+not gate it — there is no read-only switch and no approval prompt to configure.
+The two right places to control read vs write:
+
+- **The account you connect with.** Give it a SolarWinds/PRTG/Zabbix login with
+  read-only monitoring scope. A write then fails at the server, which is the
+  only place the permission actually lives — no skill-side flag can be argued
+  around by a model, but a revoked permission cannot be.
+- **Your agent's system prompt.** If you want an observe-only session, tell the
+  model not to call the write tools (they are clearly tagged `[WRITE]`).
+
+What the tool *does* guarantee is that you can always see what happened:
+
+## What the tool enforces — do not waste prompt budget on these
 
 | You might be tempted to prompt | Why you don't need to |
 |---|---|
-| "Only look, never change monitoring state" | Set `MONITORING_READ_ONLY=1`. Write tools are then **not registered at all** — they never appear in the tool list, so the model cannot call one even if it tries. The `@governed_tool` harness independently refuses writes, so the CLI is covered too. Triage-weight writes go with them: `alert_acknowledge` and `mute_alerts` disappear alongside `remove_node`. |
 | "Never write to the monitoring database" | `swql_query` accepts a single read-only `SELECT` and nothing else — no verb invoke, no multi-statement, no DELETE. Orion state changes only happen through the named, governed write tools. |
 | "Don't invent a value when a field is missing" | A column the platform did not return comes back as `null`, never as `""`. An absent Orion `StatusDescription`, a PRTG sensor `message`, a Zabbix host `dns` — all distinguishable from a genuinely empty one. |
 | "Tell me if the output was cut off" | Every row-capped read returns `returned` / `limit` / `truncated`: `swql_query`, `swql_canned`, `list_events`, `zabbix_events`, `zabbix_item_history`, and `interface_status` with a `top`. Truncation is measured — one row past the cap is fetched, or the full set is counted before the cut — never guessed from a length coincidence. |
 | "Deduplicate the alert storm before showing me" | `active_alerts` already rolls repeats of the same message into one row with a `count` and up to three `examples`, worst-first. Report the rollup; do not re-count the raw list. |
 | "Normalise severity across platforms" | Zabbix's 0–5 scale is already mapped to canonical `level` values (`info`/`warning`/`high`/`critical`) alongside the platform's own `severity` name. Use `level` for cross-platform statements and `severity` when quoting the platform. |
-| "Confirm before anything disruptive" | `remove_node`, `unmanage_node`, `mute_alerts`, and the maintenance-window writes require a `--dry-run`-able preview + double confirmation at the CLI, and a named approver (`MONITORING_AUDIT_APPROVED_BY`) for high-risk tiers. |
+| "Confirm before anything disruptive" | `remove_node`, `unmanage_node`, `mute_alerts`, and the maintenance-window writes require a `--dry-run`-able preview + double confirmation at the CLI. |
 | "Log what you did" | Every call is audited to `~/.monitoring-aiops/audit.db` regardless of what the model says it did. |
 
 ## What still needs a prompt
@@ -70,17 +84,18 @@ SCOPE
 
 ## Recommended setup for a local model
 
+Start with a connection that *cannot* write — a SolarWinds/PRTG/Zabbix account
+with read-only monitoring scope — verify, and widen the account's permission
+only when you trust the setup:
+
 ```bash
-# Read-only until you trust the setup — this is enforced, not advisory.
-export MONITORING_READ_ONLY=1
 monitoring-aiops doctor
 ```
 
-Then, when you are ready to allow writes, unset it and set an approver so the
-high-risk tier has an accountable name on it:
+Optionally annotate the audit trail with who is operating and why — recorded on
+every row, never required:
 
 ```bash
-unset MONITORING_READ_ONLY
 export MONITORING_AUDIT_APPROVED_BY="your.name@example.com"
 export MONITORING_AUDIT_RATIONALE="change window CHG0041231, muting core-sw1"
 ```

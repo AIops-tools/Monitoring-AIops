@@ -22,7 +22,7 @@ compatibility: >
   Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17774 on Orion 2023.1+ with an automatic one-shot fallback to the legacy 17778, HTTP Basic auth), Paessler PRTG (web API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at /api_jsonrpc.php, API token as Bearer header on 6.4+/7.x with a legacy auth-field fallback for 6.0). Each target in the config names its own platform, so one config can span all NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
   All write operations are audited to a local SQLite DB under ~/.monitoring-aiops/ (relocatable via MONITORING_AIOPS_HOME).
   Credentials: the Orion account password (SolarWinds), the PRTG API token, or the Zabbix API token is stored ENCRYPTED in ~/.monitoring-aiops/secrets.enc (Fernet/AES-128 + scrypt-derived key) — never plaintext on disk. Run 'monitoring-aiops init' to onboard (it asks for the platform), or 'monitoring-aiops secret set <target>' to add one. The store is unlocked by a master password from MONITORING_AIOPS_MASTER_PASSWORD (non-interactive/MCP/CI) or an interactive prompt (CLI on a TTY). A legacy plaintext env var MONITORING_<TARGET_NAME_UPPER>_SECRET is still honoured as a fallback with a deprecation warning (migrate with 'monitoring-aiops secret migrate'). The secret is used for HTTP Basic auth (SolarWinds) or as the PRTG/Zabbix API token at request time and held only in memory; secrets are never logged or echoed.
-  Read-only SWQL passthrough (swql_query) is validated to accept SELECT statements only. State-changing operations pass through the @governed_tool decorator (pre-check + budget guard + audit + risk-tier gate). Destructive writes (unmanage_node, remove_node, zabbix_delete_maintenance) are high-risk with dry_run + double confirmation; unmanage_node records an inverse remanage undo descriptor, zabbix_delete_maintenance captures the window's FULL definition into priorState first. Suppression/maintenance writes are TIME-BOXED (mute_alerts, schedule_maintenance, schedule_maintenance_prtg, zabbix_create_maintenance require an end time / duration). mute_alerts→unmute, pause_sensor→resume, zabbix_create_maintenance→delete-that-maintenance-id record inverse undo descriptors. Zabbix item history is BOUNDED (capped window + point count).
+  Read-only SWQL passthrough (swql_query) is validated to accept SELECT statements only. State-changing operations pass through the @governed_tool decorator (budget guard + audit + undo recording; each tool's risk_level is recorded as a descriptive tier, not a gate). Destructive writes (unmanage_node, remove_node, zabbix_delete_maintenance) are high-risk with dry_run + double confirmation; unmanage_node records an inverse remanage undo descriptor, zabbix_delete_maintenance captures the window's FULL definition into priorState first. Suppression/maintenance writes are TIME-BOXED (mute_alerts, schedule_maintenance, schedule_maintenance_prtg, zabbix_create_maintenance require an end time / duration). mute_alerts→unmute, pause_sensor→resume, zabbix_create_maintenance→delete-that-maintenance-id record inverse undo descriptors. Zabbix item history is BOUNDED (capped window + point count).
   Webhooks: none — no outbound network calls beyond the configured SolarWinds SWIS / PRTG web API / Zabbix JSON-RPC endpoint.
   SSL: verify_ssl defaults to false-friendly for self-signed lab certs; enable for production.
   Transitive dependencies: httpx (HTTP client) and the MCP SDK. No post-install scripts or background services.
@@ -38,8 +38,8 @@ across **SolarWinds Orion** (SWIS REST + SWQL), **Paessler PRTG** (web API),
 and **Zabbix 6.x/7.x** (JSON-RPC 2.0),
 every one wrapped with the bundled `@governed_tool` harness: a local unified
 audit log under `~/.monitoring-aiops/`, policy engine, token/runaway budget
-guard, undo-token recording, and graduated-autonomy risk tiers. One config can
-span all NOCs. The Orion password / PRTG API token / Zabbix API token is stored
+guard, undo-token recording, and risk-tier labelling on the audit trail. One
+config can span all NOCs. The Orion password / PRTG API token / Zabbix API token is stored
 **encrypted** (`~/.monitoring-aiops/secrets.enc`, Fernet + scrypt) — never
 plaintext on disk.
 
@@ -95,7 +95,7 @@ monitoring-aiops doctor
   `zabbix_triggers`, inventory `zabbix_hosts` / `zabbix_hostgroups`, drill with
   `zabbix_item_history` (bounded), review `zabbix_events` / `zabbix_maintenances`
 - Safely take a node out for maintenance (`schedule_maintenance` /
-  `unmanage_node` with dry_run + approver), pause a PRTG sensor
+  `unmanage_node` with dry_run + double-confirm), pause a PRTG sensor
   (`pause_sensor`), or create a time-boxed Zabbix maintenance window
   (`zabbix_create_maintenance` — undo deletes exactly that window)
 
@@ -113,7 +113,7 @@ or OT/industrial work to the appropriate other AIops-tools skill.
 
 ## Common Workflows
 
-> **Secure by default (v0.2.0+)**: with no `~/.monitoring-aiops/rules.yaml`, high/critical operations are denied unless `MONITORING_AUDIT_APPROVED_BY` names an approver (set `MONITORING_AUDIT_RATIONALE` too). `monitoring-aiops init` seeds a starter rules.yaml; an operator-authored rules file is honoured as-is.
+> **No authorization gate**: the skill runs the operations you ask for and audits every one; it does not decide whether a write is permitted — that is the agent's judgement or the permissions of the SolarWinds/PRTG/Zabbix account it connects with (a read-only monitoring account makes writes fail at the server). There is no read-only switch, policy file, or approval gate. `MONITORING_AUDIT_APPROVED_BY` / `MONITORING_AUDIT_RATIONALE` are optional audit annotations, recorded when set.
 
 ### 1. The 3 a.m. alert storm — collapse it, then acknowledge what matters
 
@@ -163,8 +163,8 @@ or OT/industrial work to the appropriate other AIops-tools skill.
    undo → delete that maintenance id)
 3. If you genuinely need to unmanage instead:
    `unmanage_node <node> --dry-run`, then re-run without `--dry-run` →
-   **high** risk, double confirmation, needs `MONITORING_AUDIT_APPROVED_BY`; it
-   records an inverse `remanage_node` undo descriptor
+   **high** risk, double confirmation; it records an inverse `remanage_node`
+   undo descriptor
 4. For a single noisy sensor rather than a whole node: `pause_sensor` (PRTG,
    undo → `resume_sensor`) or `mute_alerts` (undo → `unmute_alerts`)
 5. When maintenance ends: `remanage_node <node>` / `resume_sensor` /
@@ -196,9 +196,9 @@ or OT/industrial work to the appropriate other AIops-tools skill.
 
 - Every tool is audited to `~/.monitoring-aiops/audit.db` (relocatable via
   `MONITORING_AIOPS_HOME`).
-- High-risk ops (`unmanage_node`, `remove_node`, `zabbix_delete_maintenance`)
-  can require a named approver: set `MONITORING_AUDIT_APPROVED_BY` and
-  `MONITORING_AUDIT_RATIONALE`.
+- Each tool's `risk_level` is carried into the audit row as a descriptive tier
+  (a label, not a gate). `MONITORING_AUDIT_APPROVED_BY` /
+  `MONITORING_AUDIT_RATIONALE` are optional audit annotations, recorded when set.
 - Destructive writes support `--dry-run` and double confirmation at the CLI.
 - Suppression / maintenance writes are **time-boxed** (require an end time /
   duration). Reversible writes record an inverse descriptor (mute→unmute,

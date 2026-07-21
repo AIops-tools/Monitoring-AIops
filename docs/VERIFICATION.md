@@ -11,7 +11,7 @@ monitoring servers, so the maturity claim is auditable rather than a vibe.
   These fetch everything the API returns, so their `total` is a true count.
 - Governance loop end-to-end: `zabbix_create_maintenance` really created a
   maintenance window (confirmed via `maintenance.get`), and `undo_apply` deleted
-  it — all three calls audited under a named approver.
+  it — all three calls landed audit rows.
 - Confirmed the auth model: Zabbix needs an **API token**, not a user password.
 
 **A real bug was found and fixed by this run**: the target URL was hardcoded to

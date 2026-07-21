@@ -13,7 +13,7 @@ from monitoring_aiops.cli._common import (
     cli_errors,
     console,
     double_confirm,
-    dry_run_print,
+    dry_run_preview,
     get_connection,
 )
 
@@ -45,8 +45,13 @@ def alert_ack(
     from mcp_server.tools import alerts as gov
 
     if dry_run:
-        dry_run_print(operation="acknowledge_alert", api_call="Acknowledge",
-                      parameters={"alert_id": alert_id})
+        preview = gov.alert_acknowledge(alert_id=alert_id, target=target, dry_run=True)
+        dry_run_preview(
+            preview,
+            operation="acknowledge_alert",
+            api_call="Acknowledge",
+            parameters=preview.get("wouldAcknowledge"),
+        )
         return
     double_confirm("acknowledge alert", alert_id)
     console.print_json(json.dumps(gov.alert_acknowledge(alert_id=alert_id, target=target)))

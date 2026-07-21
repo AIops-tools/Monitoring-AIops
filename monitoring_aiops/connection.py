@@ -188,6 +188,17 @@ class MonitoringConnection:
             return self._client.request(method, path, **kwargs)
         except httpx.HTTPError as exc:
             first = exc
+        # Only a failure to ESTABLISH the connection means "nothing is listening
+        # on this port, try the other one". A read/write timeout means the server
+        # answered the TCP handshake and is merely slow — migrating a slow-but-
+        # healthy 17774 server onto the deprecated 17778 would misdiagnose it and
+        # leave the cached connection pointing at a dead port.
+        if not isinstance(first, (httpx.ConnectError, httpx.ConnectTimeout)):
+            raise MonitoringApiError(
+                f"Could not reach {self._target.platform} at {self.base_url} "
+                f"({method} {path}): {first}. Check host/port and reachability.",
+                path=path,
+            ) from first
         if not self._fall_back_to_legacy_swis_port():
             raise MonitoringApiError(
                 f"Could not reach {self._target.platform} at {self.base_url} "

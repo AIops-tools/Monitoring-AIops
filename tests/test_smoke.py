@@ -274,9 +274,40 @@ def test_acknowledge_alert_dispatches_solarwinds_verb():
 def test_alert_acknowledge_is_a_write_tier():
     """Acknowledging is a light triage action, but it is still a write.
 
-    risk_level is what read-only mode keys off, so a write marked "low" would
-    stay exposed with read-only mode turned on. Keep it above low.
+    risk_level is the declared read/write signal the audit trail records and a
+    test cross-checks against the [WRITE] tag, so a write marked "low" would
+    misrepresent itself in the trail. Keep it above low.
     """
     from mcp_server.tools import alerts as a
 
     assert a.alert_acknowledge._risk_level == "medium"
+
+
+@pytest.mark.unit
+def test_risk_level_agrees_with_read_write_docstring_tag():
+    """The two write-markers must never drift apart.
+
+    A tool's ``risk_level`` decides its audit tier and whether it gets dry-run /
+    undo handling; its ``[READ]``/``[WRITE]`` docstring tag is what the docs and
+    capability tables are built from. If a ``[WRITE]`` were left ``risk_level=low``
+    it would be audited as a read and skip the write machinery — this test caught
+    16 such mislabels line-wide once, so it is kept even though read-only mode
+    (its original motivation) is gone.
+    """
+    from mcp_server import server
+
+    untagged, mismatched = [], []
+    for name, tool in server.mcp._tool_manager._tools.items():
+        doc = (tool.fn.__doc__ or "").lstrip()
+        if doc.startswith("[READ]"):
+            tagged_as_read = True
+        elif doc.startswith("[WRITE]"):
+            tagged_as_read = False
+        else:
+            untagged.append(name)
+            continue
+        if tagged_as_read != (getattr(tool.fn, "_risk_level", "low") == "low"):
+            mismatched.append(name)
+
+    assert not untagged, f"tools missing a [READ]/[WRITE] docstring tag: {untagged}"
+    assert not mismatched, f"risk_level disagrees with the docstring tag: {mismatched}"

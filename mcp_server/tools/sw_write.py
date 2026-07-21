@@ -3,7 +3,7 @@
 Reversible writes (mute, unmanage) pass an ``undo=`` callback so the harness
 records an inverse descriptor. The two footgun writes — ``unmanage_node`` (masks
 monitoring) and ``remove_node`` (deletes the node) — are risk=high with a
-``dry_run`` preview and require an approver under the graduated-autonomy policy.
+``dry_run`` preview; their risk_level is carried into the audit row.
 """
 
 from typing import Any, Optional
@@ -140,9 +140,8 @@ def unmanage_node(
 ) -> dict:
     """[WRITE][risk=high] Unmanage a node — masks its monitoring. Inverse: remanage_node.
 
-    Pass dry_run=True to preview. Requires an approver (set
-    MONITORING_AUDIT_APPROVED_BY) under the graduated-autonomy policy. Reversible
-    → remanage. An end time is required (no open-ended unmanage).
+    Pass dry_run=True to preview. Reversible → remanage. An end time is required
+    (no open-ended unmanage).
 
     Args:
         node_id: Numeric Orion NodeID.
@@ -176,8 +175,7 @@ def remanage_node(node_id: int, target: Optional[str] = None) -> dict:
 def remove_node(node_id: int, dry_run: bool = False, target: Optional[str] = None) -> dict:
     """[WRITE][risk=high] Permanently delete a node from Orion. IRREVERSIBLE — no undo.
 
-    Pass dry_run=True to preview (reports the node's caption). Requires an
-    approver (MONITORING_AUDIT_APPROVED_BY) under the graduated-autonomy policy.
+    Pass dry_run=True to preview (reports the node's caption).
 
     Args:
         node_id: Numeric Orion NodeID to delete.

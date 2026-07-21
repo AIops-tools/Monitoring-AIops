@@ -10,8 +10,9 @@ with an automatic fallback to the legacy 17778, HTTP Basic auth), **Paessler
 PRTG** (web API, port 443/8080, API token), and
 **Zabbix 6.x/7.x** (JSON-RPC 2.0 at `/api_jsonrpc.php`, API token) — with
 a **built-in governance harness**: unified audit log, policy engine,
-token/runaway budget guard, undo-token recording, and graduated-autonomy risk
-tiers. One config can span all NOCs; each target names its own `platform`.
+token/runaway budget guard, undo-token recording, and risk-tier labelling on
+the audit trail. One config can span all NOCs; each target names its own
+`platform`.
 
 ## What it does
 
@@ -34,40 +35,25 @@ that follow:
   the destructive ones gated with **dry-run + double-confirm**. Suppression and
   maintenance writes are **time-boxed** (they require an end time / duration).
 
-## Security: read-only mode
+## What this tool does, and does not, decide
 
-This tool is meant to be handed to an AI agent, so its safety story is enforced
-by the server rather than requested in a prompt:
+It delivers NOC operations — reads and writes — accurately and efficiently, and
+records every one of them. It does **not** decide whether a write is allowed to
+happen. That is the agent's judgement, or the permission of the account you
+connect it with: give it a SolarWinds/PRTG/Zabbix account with read-only
+monitoring scope and the writes fail at the server — the place that actually
+owns the permission.
 
-```bash
-export MONITORING_READ_ONLY=1
-```
+So there is no read-only switch, no policy file, no approval gate to configure.
+The one thing the tool guarantees is that nothing is silent: **every call, over
+MCP and over the CLI alike, lands an audit row** in
+`~/.monitoring-aiops/audit.db`, and destructive writes still capture their
+before-state and record an inverse where one exists.
 
-With that set, the **13 write tools are never registered**. An MCP client
-lists **29 tools instead of 42** — the writes are not hidden, not
-gated behind a flag, and not merely refused when called. They are absent from
-the session. A model cannot invoke a tool it was never offered, and cannot be
-argued into one.
-
-That distinction is the whole point. A tool that exists but refuses still invites
-retry loops and "I'll describe the call instead" behaviour from smaller models,
-and it leaves a reviewer trusting a promise. An absent tool is a fact you can
-check: connect, list the tools, and see that the writes are not there.
-
-Enforcement is two layers deep, so the switch cannot be sidestepped by changing
-entry point:
-
-| Layer | What it does | Covers |
-|---|---|---|
-| `@governed_tool` harness | refuses every non-read operation outright | MCP, CLI, and in-process callers |
-| MCP registration | write tools are removed from `list_tools()` | anything speaking MCP |
-
-Read operations are unaffected, and every call is still audited to
-`~/.monitoring-aiops/audit.db`.
-
-> The read/write split is derived from each tool's declared `risk_level`, and a
-> test asserts that this never disagrees with the `[READ]`/`[WRITE]` tag in the
-> tool's own documentation — so a write can't quietly present itself as a read.
+> Each tool declares a `risk_level`, kept in agreement with its `[READ]`/`[WRITE]`
+> documentation tag by a test, and carried into the audit row as a descriptive
+> tier — so a reviewer can see at a glance that a row was a high-risk node
+> removal. It is a label, not a gate.
 
 Running a smaller / local model? See
 [agent-guardrails.md](skills/monitoring-aiops/references/agent-guardrails.md) — it lists
@@ -121,10 +107,11 @@ Every MCP tool passes through the bundled `@governed_tool` harness:
   approver, rationale) is logged to `~/.monitoring-aiops/audit.db` (relocatable
   via `MONITORING_AIOPS_HOME`).
 - **Budget / runaway guard** — token and call budgets trip a circuit breaker on
-  tight poll/retry loops.
-- **Risk tiers** — graduated autonomy; high-risk ops (`unmanage_node`,
-  `remove_node`, `zabbix_delete_maintenance`) can require a named approver
-  (`MONITORING_AUDIT_APPROVED_BY` / `MONITORING_AUDIT_RATIONALE`).
+  tight poll/retry loops. It is a safety backstop, not authorization.
+- **Risk-tier labelling** — each tool's declared `risk_level` is carried into
+  the audit row as a descriptive tier (a label, not a gate).
+  `MONITORING_AUDIT_APPROVED_BY` / `MONITORING_AUDIT_RATIONALE` are optional
+  audit annotations, recorded when set and never required.
 - **Undo recording** — reversible writes record an inverse descriptor
   (`mute_alerts`→unmute, `unmanage_node`→remanage, `pause_sensor`→resume,
   `zabbix_create_maintenance`→delete that maintenance id).

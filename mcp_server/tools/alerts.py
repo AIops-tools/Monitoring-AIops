@@ -25,11 +25,28 @@ def active_alerts(target: Optional[str] = None) -> dict:
 @mcp.tool()
 @governed_tool(risk_level="medium")
 @tool_errors("dict")
-def alert_acknowledge(alert_id: str, target: Optional[str] = None) -> dict:
+def alert_acknowledge(
+    alert_id: str, dry_run: bool = False, target: Optional[str] = None
+) -> dict:
     """[WRITE][risk=medium] Acknowledge one active alert (reversible triage action).
 
+    Pass dry_run=True to preview (reports the platform whose acknowledge API
+    would be called — the three platforms take different endpoints and different
+    id shapes, so it is the part of this call most worth confirming first).
+
     Args:
-        alert_id: Alert id (AlertActiveID on SolarWinds, sensor objid on PRTG).
+        alert_id: Alert id (AlertActiveID on SolarWinds, sensor objid on PRTG,
+            problem event id on Zabbix).
+        dry_run: If True, preview without acknowledging.
         target: Monitoring target name from config; omit for the default.
     """
-    return ops.acknowledge_alert(_get_connection(target), alert_id)
+    conn = _get_connection(target)
+    if dry_run:
+        return {
+            "dryRun": True,
+            "wouldAcknowledge": {
+                "alertId": alert_id,
+                "platform": conn.target.platform,
+            },
+        }
+    return ops.acknowledge_alert(conn, alert_id)

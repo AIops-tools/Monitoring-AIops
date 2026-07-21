@@ -98,7 +98,6 @@ export MONITORING_AIOPS_MASTER_PASSWORD='your-master-password'
 State lives under `~/.monitoring-aiops/` (relocate with `MONITORING_AIOPS_HOME`):
 
 - `audit.db` — every tool call (SQLite), with risk tier, approver, rationale
-- `rules.yaml` — policy: deny rules, maintenance windows, approval tiers
 - `undo.db` — inverse descriptors for reversible writes (mute→unmute,
   unmanage→remanage, pause→resume, zabbix create-maintenance→delete)
 - budget / runaway guard — caps cumulative tool calls and wall-time; trips on
@@ -107,9 +106,9 @@ State lives under `~/.monitoring-aiops/` (relocate with `MONITORING_AIOPS_HOME`)
 ## Governed writes
 
 - **High-risk** ops (`unmanage_node`, `remove_node`,
-  `zabbix_delete_maintenance`) require an approver — set
-  `MONITORING_AUDIT_APPROVED_BY` and `MONITORING_AUDIT_RATIONALE` — and use
-  `dry_run` + double confirmation.
+  `zabbix_delete_maintenance`) use `dry_run` + double confirmation;
+  `MONITORING_AUDIT_APPROVED_BY` / `MONITORING_AUDIT_RATIONALE` are optional
+  audit annotations, recorded when set but never required.
 - **Time-boxed** ops require an end time / duration: `mute_alerts`,
   `schedule_maintenance` (SolarWinds), `schedule_maintenance_prtg` (PRTG, in
   minutes), and `zabbix_create_maintenance` (Zabbix, in minutes). This prevents

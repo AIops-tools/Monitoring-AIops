@@ -62,8 +62,7 @@ def zabbix_delete_maintenance(
     """[WRITE][risk=high] Delete a Zabbix maintenance window. IRREVERSIBLE — no undo.
 
     Pass dry_run=True to preview (reports the window's full definition).
-    Requires an approver (MONITORING_AUDIT_APPROVED_BY) under the
-    graduated-autonomy policy. The BEFORE definition lands in priorState.
+    The BEFORE definition lands in priorState.
 
     Args:
         maintenance_id: Maintenance id to delete (from zabbix_maintenances).

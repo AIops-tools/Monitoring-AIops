@@ -115,7 +115,7 @@ mcp = FastMCP(
         "maintenance (incl. Zabbix maintenance windows with a replayable "
         "delete-undo), and unmanage/add/remove a node. Destructive writes "
         "(unmanage / remove node / delete maintenance) are risk=high with a "
-        "dry_run preview and require an approver. Every tool runs through the "
+        "dry_run preview. Every tool runs through the "
         "monitoring-aiops governance harness (audit / budget / risk-tier / undo)."
     ),
 )

@@ -23,10 +23,19 @@ DryRunOption = Annotated[
 
 
 def _cli_error_types() -> tuple[type[BaseException], ...]:
-    """Exceptions translated to a one-line teaching error instead of a traceback."""
-    from monitoring_aiops.connection import MonitoringApiError
+    """Exceptions translated to a one-line teaching error instead of a traceback.
 
-    return (MonitoringApiError, KeyError, OSError, ValueError)
+    ``PolicyDenied`` is kept here defensively even though it is not a ValueError
+    and the harness no longer raises it. It is defined OUTSIDE ``@tool_errors``
+    (``@governed_tool`` wraps it), so were it ever raised it would not become an
+    ``{"error": ...}`` dict the dry-run helper could catch. Listing it means any
+    such error surfaces the governed twin's real message with exit code 1 rather
+    than a bare traceback printing NOTHING.
+    """
+    from monitoring_aiops.connection import MonitoringApiError
+    from monitoring_aiops.governance import PolicyDenied
+
+    return (MonitoringApiError, KeyError, OSError, ValueError, PolicyDenied)
 
 
 def cli_errors(fn: Callable) -> Callable:
@@ -66,6 +75,32 @@ def dry_run_print(*, operation: str, api_call: str, parameters: dict | None = No
     for k, v in (parameters or {}).items():
         console.print(f"[magenta]  Param:     {k} = {v}[/]")
     console.print("[magenta]  Run without --dry-run to execute.[/]\n")
+
+
+def dry_run_preview(
+    preview: Any, *, operation: str, api_call: str, parameters: dict | None = None
+) -> None:
+    """Render a GOVERNED dry-run result as the human-readable DRY-RUN banner.
+
+    ``preview`` must come from calling the governed twin with ``dry_run=True``,
+    so every guard it carries has already run against the real target and the
+    preview lands in the audit log — MCP previews have always been audited, the
+    CLI printing a hand-written string was the outlier.
+
+    A refusal arrives as ``{"error": ...}`` (``tool_errors`` flattens the
+    exception) and is printed like any other CLI error, exit code 1, exactly as
+    the real write would. A green banner for a call that is about to be refused
+    is the preview being wrong, not merely incomplete.
+
+    On the allowed path the banner is what it always was — routing through the
+    governed call buys the guard and the audit row, not a new serialization.
+
+    Invariant: **a dry_run MAY read; it must never write.**
+    """
+    if isinstance(preview, dict) and preview.get("error"):
+        console.print(f"[red]Error: {preview['error']}[/]")
+        raise typer.Exit(1)
+    dry_run_print(operation=operation, api_call=api_call, parameters=parameters)
 
 
 def double_confirm(action: str, resource: str) -> None:
