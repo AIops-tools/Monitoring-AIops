@@ -35,6 +35,7 @@ def _dedup(items: list[dict], key: str) -> list[dict]:
 def active_alerts(conn: Any) -> dict:
     """[READ] Active alerts with dedup/rollup by message (SW, PRTG, or Zabbix)."""
     platform = conn.target.platform
+    host_error: str | None = None
     try:
         if platform == PLATFORM_SOLARWINDS:
             raw = conn.swql(_SW_ACTIVE)
@@ -51,6 +52,9 @@ def active_alerts(conn: Any) -> dict:
             problems = list_problems(conn)
             if "error" in problems:
                 return {"error": problems["error"], "platform": platform}
+            # Carried through, not dropped: without it every "entity" below
+            # falls back to a trigger id for a reason the caller cannot see.
+            host_error = problems.get("hostLookupError")
             norm = [{
                 "id": p["eventId"],
                 # ``entity`` is the alerting THING, and on the other two
@@ -82,12 +86,17 @@ def active_alerts(conn: Any) -> dict:
     except Exception as exc:  # noqa: BLE001 — report as partial
         return {"error": s(exc, 200), "platform": platform}
 
-    return {
+    out = {
         "platform": platform,
         "total": len(norm),
         "unacknowledged": sum(1 for a in norm if not a.get("acknowledged")),
         "rollup": _dedup(norm, "message"),
     }
+    if host_error:
+        # Without this, every Zabbix "entity" silently falls back to a trigger
+        # id and the caller cannot tell that a lookup failed.
+        out["hostLookupError"] = host_error
+    return out
 
 
 def acknowledge_alert(conn: Any, alert_id: str) -> dict:

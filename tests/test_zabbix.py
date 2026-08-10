@@ -243,6 +243,9 @@ def test_zabbix_problems_survive_a_failed_host_lookup():
     out = ops.list_problems(conn)
     assert out["total"] == 1
     assert out["problems"][0]["host"] is None
+    # A swallowed lookup makes every host null, which is indistinguishable from
+    # "these problems have no host" — bug class #3. The reason must be visible.
+    assert "boom" in out["hostLookupError"]
 
 
 @pytest.mark.unit
