@@ -10,6 +10,7 @@ import typer
 from monitoring_aiops.cli._common import (
     DryRunOption,
     TargetOption,
+    checked,
     cli_errors,
     console,
     double_confirm,
@@ -54,4 +55,4 @@ def alert_ack(
         )
         return
     double_confirm("acknowledge alert", alert_id)
-    console.print_json(json.dumps(gov.alert_acknowledge(alert_id=alert_id, target=target)))
+    console.print_json(json.dumps(checked(gov.alert_acknowledge(alert_id=alert_id, target=target))))

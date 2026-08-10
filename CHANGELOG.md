@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.0 — 2026-08-10
+
+### Fixed
+- **A Zabbix alert now names the host it is about.** `entity` is the alerting thing, and on the other two platforms it is a human-readable name (an Orion `EntityCaption`, a PRTG device); on Zabbix it carried the numeric trigger objectid, so "which host is alerting?" answered `25224`. `problem.get` cannot help — it rejects `selectHosts` outright ("unexpected parameter", measured on Zabbix 7.0.29) — so host names are resolved through one batched `event.get`, and the trigger id is still returned under its own name. Best-effort: if the lookup fails the alerts still come back, with `host: null`. Verified against a live Zabbix 7.0.29 with three hosts and six real problems.
+- **The CLI reported a refused or failed write as a success.** Governed writes printed the twin's payload and exited 0 whatever it said, while the dry-run path already exited 1. Now routed through `checked()` (exit 1 on error, 2 on an undetermined outcome), with an invariant test that fails if a future command prints a governed result unchecked.
+
 ## v0.8.0 — 2026-08-03
 
 ### Fixed

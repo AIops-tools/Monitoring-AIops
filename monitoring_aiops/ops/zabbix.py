@@ -59,6 +59,35 @@ def _dicts(result: Any) -> list[dict]:
     return [r for r in (result or []) if isinstance(r, dict)] if isinstance(result, list) else []
 
 
+def _hosts_for_events(conn: Any, event_ids: list) -> dict[str, str | None]:
+    """Map eventid -> host name for the given problems, in ONE extra call.
+
+    ``problem.get`` cannot return the host: it rejects ``selectHosts`` outright
+    ("unexpected parameter", measured on Zabbix 7.0.29). ``event.get`` accepts
+    it, so the ids are resolved in a single batched follow-up rather than one
+    call per problem.
+
+    Best-effort by design: if the lookup fails the problems still come back,
+    just without a host name — an alert list is more useful than an error.
+    """
+    ids = [str(e) for e in event_ids if e is not None]
+    if not ids:
+        return {}
+    try:
+        rows = _dicts(conn.zabbix_rpc("event.get", {
+            "eventids": ids, "output": ["eventid"], "selectHosts": ["host"],
+        }))
+    except Exception:  # noqa: BLE001 — the host name is an enrichment, not the payload
+        return {}
+    out: dict[str, str | None] = {}
+    for r in rows:
+        hosts = [opt_s(h.get("host")) for h in _dicts(r.get("hosts"))]
+        named = [h for h in hosts if h]
+        # A trigger can span hosts; name them all rather than silently picking one.
+        out[str(r.get("eventid"))] = ", ".join(named) if named else None
+    return out
+
+
 def list_problems(conn: Any, min_severity: int = 0) -> dict:
     """[READ] Current problems (active alerts) with severity mapped to levels."""
     try:
@@ -71,9 +100,11 @@ def list_problems(conn: Any, min_severity: int = 0) -> dict:
         if min_severity > 0:
             params["severities"] = list(range(min_severity, 6))
         raw = _dicts(conn.zabbix_rpc("problem.get", params))
+        hosts_by_event = _hosts_for_events(conn, [r.get("eventid") for r in raw])
         problems = [{
             "eventId": opt_s(r.get("eventid")),
             "triggerId": opt_s(r.get("objectid")),
+            "host": hosts_by_event.get(str(r.get("eventid"))),
             "name": opt_s(r.get("name")),
             **severity_of(r.get("severity")),
             "acknowledged": str(r.get("acknowledged")) == "1",

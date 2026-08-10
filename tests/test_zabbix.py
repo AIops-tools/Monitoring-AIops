@@ -191,9 +191,58 @@ def test_zabbix_problems_normalize_and_filter_by_severity():
     assert first["level"] == "high" and first["acknowledged"] is False
     assert out["problems"][1]["level"] == "critical"
     assert out["problems"][1]["acknowledged"] is True
-    # min_severity must reach the API as a severities filter.
-    params = conn.zabbix_rpc.call_args[0][1]
+    # min_severity must reach the API as a severities filter. Read the
+    # problem.get call by name: list_problems now makes a second (event.get)
+    # call to resolve host names, so call_args is no longer the right one.
+    params = next(
+        c[0][1] for c in conn.zabbix_rpc.call_args_list if c[0][0] == "problem.get"
+    )
     assert params["severities"] == [3, 4, 5]
+
+
+@pytest.mark.unit
+def test_zabbix_problems_carry_the_host_name():
+    """A problem must name the host, not just an internal trigger id.
+
+    ``entity`` is a human-readable name on the other two platforms (an Orion
+    EntityCaption, a PRTG device); on Zabbix it was the numeric objectid, so
+    "which host is alerting?" answered "25224". ``problem.get`` cannot help —
+    it rejects ``selectHosts`` outright ("unexpected parameter", measured on
+    Zabbix 7.0.29) — so the names come from one batched ``event.get``.
+    """
+    from monitoring_aiops.ops import zabbix as ops
+
+    conn = _mock_conn(**{
+        "problem.get": [
+            {"eventid": "101", "objectid": "9", "name": "High CPU on web01",
+             "severity": "4", "acknowledged": "0", "clock": "1700000000"},
+        ],
+        "event.get": [{"eventid": "101", "hosts": [{"host": "web01"}]}],
+    })
+    out = ops.list_problems(conn)
+    assert out["problems"][0]["host"] == "web01"
+    assert out["problems"][0]["triggerId"] == "9"
+    resolved = next(c[0][1] for c in conn.zabbix_rpc.call_args_list if c[0][0] == "event.get")
+    assert resolved["eventids"] == ["101"], "hosts must resolve in ONE batched call"
+
+
+@pytest.mark.unit
+def test_zabbix_problems_survive_a_failed_host_lookup():
+    """The host name is an enrichment — losing it must not lose the alerts."""
+    from monitoring_aiops.ops import zabbix as ops
+
+    conn = _mock_conn(**{"problem.get": [
+        {"eventid": "101", "objectid": "9", "name": "High CPU on web01",
+         "severity": "4", "acknowledged": "0", "clock": "1700000000"},
+    ]})
+    conn.zabbix_rpc.side_effect = lambda m, p: (
+        [{"eventid": "101", "objectid": "9", "name": "High CPU on web01",
+          "severity": "4", "acknowledged": "0", "clock": "1700000000"}]
+        if m == "problem.get" else (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    out = ops.list_problems(conn)
+    assert out["total"] == 1
+    assert out["problems"][0]["host"] is None
 
 
 @pytest.mark.unit

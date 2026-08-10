@@ -53,7 +53,14 @@ def active_alerts(conn: Any) -> dict:
                 return {"error": problems["error"], "platform": platform}
             norm = [{
                 "id": p["eventId"],
-                "entity": p["triggerId"],
+                # ``entity`` is the alerting THING, and on the other two
+                # platforms it is a name (an Orion EntityCaption, a PRTG
+                # device). Zabbix put a numeric trigger id here, so the same
+                # field meant "who is alerting" on two platforms and "an opaque
+                # internal id" on the third — a consumer asking which host is in
+                # trouble got "25224". The trigger id is still carried, named.
+                "entity": p.get("host") or p["triggerId"],
+                "triggerId": p["triggerId"],
                 "message": p["name"],
                 "acknowledged": p["acknowledged"],
                 "severity": p["severity"],
