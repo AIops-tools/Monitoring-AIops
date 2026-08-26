@@ -83,6 +83,21 @@ server.
 
 ## Quick start
 
+### As a Claude Code plugin
+
+One install gives an agent both the skill and the MCP server:
+
+```
+/plugin marketplace add AIops-tools/marketplace
+/plugin install monitoring-aiops@aiops-tools
+```
+
+The MCP server is fetched with [uv](https://docs.astral.sh/uv/) and pinned to the
+package version this plugin declares, so an audit row can be traced back to the
+code that wrote it. Credentials are still configured with `monitoring-aiops init` — see below.
+
+### As a CLI or standalone MCP server
+
 ```bash
 uv tool install monitoring-aiops          # or: pipx install monitoring-aiops
 monitoring-aiops init                     # wizard: pick platform (solarwinds/prtg/zabbix) + store the secret (encrypted)
