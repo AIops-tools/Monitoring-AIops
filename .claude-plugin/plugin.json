@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "monitoring-aiops",
   "displayName": "Monitoring AIops",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools.",
   "author": {
     "name": "Wei Zhou",
