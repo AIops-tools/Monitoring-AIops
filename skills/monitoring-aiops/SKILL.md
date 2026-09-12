@@ -86,6 +86,8 @@ openclaw plugins install clawhub:@aiops-tools/monitoring-aiops
 openclaw skills info monitoring-aiops          # expect: Visible to model: yes
 ```
 
+Needs `uvx` on `PATH`: the MCP server is fetched with uv, pinned to this release.
+
 ## When to Use This Skill
 
 - Get a NOC snapshot (`overview` / `noc_rollup`): active/unacked alert counts,
