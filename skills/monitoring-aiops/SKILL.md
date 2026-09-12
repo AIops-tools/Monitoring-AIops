@@ -17,7 +17,7 @@ installer:
 argument-hint: "[node/sensor id, a SWQL question, or describe your NOC task]"
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["MONITORING_AIOPS_CONFIG"],"bins":["monitoring-aiops"],"config":["~/.monitoring-aiops/config.yaml","~/.monitoring-aiops/secrets.enc"]},"optional":{"env":["MONITORING_AIOPS_MASTER_PASSWORD"]},"primaryEnv":"MONITORING_AIOPS_CONFIG","homepage":"https://github.com/AIops-tools/Monitoring-AIops","emoji":"📡","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"anyBins":["monitoring-aiops","uvx"]},"optional":{"env":["MONITORING_AIOPS_CONFIG","MONITORING_AIOPS_MASTER_PASSWORD"]},"homepage":"https://github.com/AIops-tools/Monitoring-AIops","emoji":"📡","os":["macos","linux"]}}
 compatibility: >
   Standalone, self-governed monitoring operations across SolarWinds Orion (SWIS REST + SWQL, port 17774 on Orion 2023.1+ with an automatic one-shot fallback to the legacy 17778, HTTP Basic auth), Paessler PRTG (web API, port 443/8080, API token), and Zabbix 6.x/7.x (JSON-RPC 2.0 at /api_jsonrpc.php, API token as Bearer header on 6.4+/7.x with a legacy auth-field fallback for 6.0). Each target in the config names its own platform, so one config can span all NOCs. The governance harness (audit, policy, token/runaway budget, undo, risk-tiers) is bundled in the package — no external skill-family dependency.
   All write operations are audited to a local SQLite DB under ~/.monitoring-aiops/ (relocatable via MONITORING_AIOPS_HOME).
