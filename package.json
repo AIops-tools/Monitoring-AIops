@@ -1,6 +1,6 @@
 {
   "name": "@aiops-tools/monitoring-aiops",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools.",
   "private": true,
   "license": "MIT",
