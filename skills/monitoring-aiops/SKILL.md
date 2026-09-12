@@ -79,6 +79,13 @@ monitoring-aiops init       # wizard: pick platform (solarwinds/prtg/zabbix) + e
 monitoring-aiops doctor
 ```
 
+Or as an OpenClaw plugin, which installs this skill and its MCP server together:
+
+```bash
+openclaw plugins install clawhub:@aiops-tools/monitoring-aiops
+openclaw skills info monitoring-aiops          # expect: Visible to model: yes
+```
+
 ## When to Use This Skill
 
 - Get a NOC snapshot (`overview` / `noc_rollup`): active/unacked alert counts,
