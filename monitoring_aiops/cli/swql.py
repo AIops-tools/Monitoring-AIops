@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from monitoring_aiops.cli._common import TargetOption, cli_errors, console, get_connection
+from monitoring_aiops.cli._common import TargetOption, audited, cli_errors, console, get_connection
 
 swql_app = typer.Typer(
     name="swql",
@@ -18,6 +18,7 @@ swql_app = typer.Typer(
 
 @swql_app.command("library")
 @cli_errors
+@audited
 def swql_library(target: TargetOption = None) -> None:
     """List the canned-SWQL library."""
     from monitoring_aiops.ops import swql as ops
@@ -27,6 +28,7 @@ def swql_library(target: TargetOption = None) -> None:
 
 @swql_app.command("canned")
 @cli_errors
+@audited
 def swql_canned(
     name: Annotated[str, typer.Argument(help="Canned query name (from 'swql library')")],
     target: TargetOption = None,
@@ -40,6 +42,7 @@ def swql_canned(
 
 @swql_app.command("query")
 @cli_errors
+@audited
 def swql_query(
     query: Annotated[str, typer.Argument(help="A read-only SWQL SELECT statement")],
     target: TargetOption = None,

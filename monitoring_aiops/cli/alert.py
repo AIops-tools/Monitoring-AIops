@@ -10,6 +10,7 @@ import typer
 from monitoring_aiops.cli._common import (
     DryRunOption,
     TargetOption,
+    audited,
     checked,
     cli_errors,
     console,
@@ -27,6 +28,7 @@ alert_app = typer.Typer(
 
 @alert_app.command("list")
 @cli_errors
+@audited
 def alert_list(target: TargetOption = None) -> None:
     """List active alerts with dedup/rollup by message."""
     from monitoring_aiops.ops import alerts as ops

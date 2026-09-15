@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 
-from monitoring_aiops.cli._common import TargetOption, cli_errors, console, get_connection
+from monitoring_aiops.cli._common import TargetOption, audited, cli_errors, console, get_connection
 
 
 @cli_errors
+@audited
 def overview_cmd(target: TargetOption = None) -> None:
     """One-shot NOC summary: platform + active/unacked alert counts + top rollup."""
     from monitoring_aiops.ops import overview as ops
