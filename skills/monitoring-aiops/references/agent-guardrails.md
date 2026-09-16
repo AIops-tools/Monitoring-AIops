@@ -33,7 +33,7 @@ What the tool *does* guarantee is that you can always see what happened:
 | "Tell me if the output was cut off" | Every row-capped read returns `returned` / `limit` / `truncated`: `swql_query`, `swql_canned`, `list_events`, `zabbix_events`, `zabbix_item_history`, and `interface_status` with a `top`. Truncation is measured — one row past the cap is fetched, or the full set is counted before the cut — never guessed from a length coincidence. |
 | "Deduplicate the alert storm before showing me" | `active_alerts` already rolls repeats of the same message into one row with a `count` and up to three `examples`, worst-first. Report the rollup; do not re-count the raw list. |
 | "Normalise severity across platforms" | Zabbix's 0–5 scale is already mapped to canonical `level` values (`info`/`warning`/`high`/`critical`) alongside the platform's own `severity` name. Use `level` for cross-platform statements and `severity` when quoting the platform. |
-| "Confirm before anything disruptive" | `remove_node`, `unmanage_node`, `mute_alerts`, and the maintenance-window writes require a `--dry-run`-able preview + double confirmation at the CLI. |
+| "Confirm before anything disruptive" | `remove_node`, `unmanage_node`, `mute_alerts` and the maintenance-window writes all take `dry_run=True` for a preview, and `remove_node`, `unmanage_node` and `zabbix_delete_maintenance` are `risk=high`. ⚠️ **The double confirmation is a CLI feature, and of the writes only `alert_acknowledge` and `undo apply` have CLI commands** — every tool named here is reachable only over MCP, where nothing prompts. Keep your own confirmation for them. |
 | "Log what you did" | Every call is audited to `~/.monitoring-aiops/audit.db` regardless of what the model says it did. |
 
 ## What still needs a prompt
@@ -69,6 +69,10 @@ READING RESULTS
   names, node captions, or sensor names into your own vocabulary.
 - Acknowledged is not the same as resolved. An acknowledged alert is still
   active; say which you mean.
+
+- None of the node or maintenance-window writes has a CLI command, so nothing will ask you
+  to confirm them — `remove_node` and `unmanage_node` least of all. Call with
+  `dry_run=True` first and wait for an explicit go-ahead.
 
 SCOPE
 - Separate observation from interpretation. State what the tools returned, then

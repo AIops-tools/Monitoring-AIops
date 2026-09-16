@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The "confirm before anything disruptive" row promised a CLI double confirmation for
+  `remove_node`, `unmanage_node`, `mute_alerts` and the maintenance-window writes. None of
+  them has a CLI command — of the writes only `alert_acknowledge` and `undo apply` do — so
+  they are reachable only over MCP, where there is no confirmation step, while the row sat
+  in the table headed "do not waste prompt budget on these". Corrected, and the copyable
+  system prompt now asks the model to confirm them itself.
+
 ## v0.10.3 — 2026-09-15
 
 ### Fixed
