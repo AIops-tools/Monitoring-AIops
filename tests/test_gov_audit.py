@@ -2,7 +2,7 @@
 
 Portable across the whole tool line: references ONLY
 ``monitoring_aiops.governance.audit`` and binds state to an isolated home via
-``MONITORING_AIOPS_HOME``. No ops / cli / connection / mcp_server imports.
+``MONITORING_AIOPS_HOME``. No ops / cli / connection / monitoring_aiops.mcp_server imports.
 
 Exercises row writes with every column, query filters, stats aggregation,
 size-based rotation + archive cleanup, permission hardening, in-place column

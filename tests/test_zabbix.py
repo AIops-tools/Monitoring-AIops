@@ -348,7 +348,7 @@ def test_acknowledge_alert_dispatches_zabbix_event_acknowledge():
 
 @pytest.mark.unit
 def test_zabbix_read_tools_are_governed_low_risk():
-    from mcp_server.tools import zabbix
+    from monitoring_aiops.mcp_server.tools import zabbix
 
     tools = (
         zabbix.zabbix_problems, zabbix.zabbix_hosts, zabbix.zabbix_hostgroups,

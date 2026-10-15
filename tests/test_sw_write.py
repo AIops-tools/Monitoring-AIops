@@ -54,7 +54,7 @@ def test_schedule_maintenance_passes_start_and_end():
 
 @pytest.mark.unit
 def test_risk_tiers():
-    from mcp_server.tools import sw_write as t
+    from monitoring_aiops.mcp_server.tools import sw_write as t
 
     assert t.unmanage_node._risk_level == "high"
     assert t.remove_node._risk_level == "high"
@@ -66,7 +66,7 @@ def test_risk_tiers():
 
 @pytest.mark.unit
 def test_unmanage_node_dry_run_does_not_mutate(monkeypatch):
-    from mcp_server.tools import sw_write as t
+    from monitoring_aiops.mcp_server.tools import sw_write as t
 
     conn = _sw_conn()
     monkeypatch.setattr(t, "_get_connection", lambda target=None: conn)
@@ -82,7 +82,7 @@ def test_unmanage_node_dry_run_does_not_mutate(monkeypatch):
 
 @pytest.mark.unit
 def test_mute_undo_descriptor_inverts_to_unmute():
-    from mcp_server.tools import sw_write as t
+    from monitoring_aiops.mcp_server.tools import sw_write as t
 
     params = {"entity_uri": "swis://orion/Orion.Nodes/NodeID=1", "minutes": 30}
     descriptor = t._mute_undo(params, {"action": "mute_alerts"})

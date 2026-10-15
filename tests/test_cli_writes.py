@@ -1,7 +1,7 @@
 """CLI write path — dry-run previews and confirmed writes, both governed.
 
 The CLI write commands delegate execution to the ``@governed_tool`` functions
-in ``mcp_server.tools``. These tests drive ``alert ack`` PAST the double-confirm
+in ``monitoring_aiops.mcp_server.tools``. These tests drive ``alert ack`` PAST the double-confirm
 prompts and assert the call really went through the governed path (audit row on
 disk) — the regression test for the "CLI writes were unaudited" line-wide fix.
 
@@ -65,7 +65,7 @@ def test_cli_alert_ack_dry_run_reads_and_audits_but_never_writes(gov_home, monke
     from monitoring_aiops.cli import app
 
     conn = _sw_conn()
-    import mcp_server.tools.alerts as gov_alerts
+    import monitoring_aiops.mcp_server.tools.alerts as gov_alerts
 
     monkeypatch.setattr(gov_alerts, "_get_connection", lambda target=None: conn)
     result = CliRunner().invoke(app, ["alert", "ack", "42", "--dry-run"])
@@ -84,7 +84,7 @@ def test_cli_alert_ack_dry_run_resolves_the_prtg_platform(gov_home, monkeypatch)
 
     conn = MagicMock(name="conn")
     conn.target.platform = "prtg"
-    import mcp_server.tools.alerts as gov_alerts
+    import monitoring_aiops.mcp_server.tools.alerts as gov_alerts
 
     monkeypatch.setattr(gov_alerts, "_get_connection", lambda target=None: conn)
     result = CliRunner().invoke(app, ["alert", "ack", "9001", "--dry-run"])
@@ -104,7 +104,7 @@ def test_cli_alert_ack_dry_run_refusal_prints_the_teaching_message_nonzero(
     the preview could not fail at all: it was a hand-written string, so it
     green-lit a call that the real write would then reject.
     """
-    import mcp_server.tools.alerts as gov_alerts
+    import monitoring_aiops.mcp_server.tools.alerts as gov_alerts
     from monitoring_aiops.cli import app
     from monitoring_aiops.connection import MonitoringApiError
 
@@ -126,7 +126,7 @@ def test_cli_alert_ack_confirmed_goes_through_governance(gov_home, monkeypatch):
     from monitoring_aiops.cli import app
 
     conn = _sw_conn()
-    import mcp_server.tools.alerts as gov_alerts
+    import monitoring_aiops.mcp_server.tools.alerts as gov_alerts
 
     monkeypatch.setattr(gov_alerts, "_get_connection", lambda target=None: conn)
     result = CliRunner().invoke(app, ["alert", "ack", "42"], input="y\ny\n")
@@ -140,7 +140,7 @@ def test_cli_alert_ack_aborts_without_double_confirm(gov_home, monkeypatch):
     from monitoring_aiops.cli import app
 
     conn = _sw_conn()
-    import mcp_server.tools.alerts as gov_alerts
+    import monitoring_aiops.mcp_server.tools.alerts as gov_alerts
 
     monkeypatch.setattr(gov_alerts, "_get_connection", lambda target=None: conn)
     result = CliRunner().invoke(app, ["alert", "ack", "42"], input="y\nn\n")

@@ -45,7 +45,7 @@ def alert_ack(
     dry_run: DryRunOption = False,
 ) -> None:
     """Acknowledge one active alert."""
-    from mcp_server.tools import alerts as gov
+    from monitoring_aiops.mcp_server.tools import alerts as gov
 
     if dry_run:
         preview = gov.alert_acknowledge(alert_id=alert_id, target=target, dry_run=True)

@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 from typer.testing import CliRunner
 
-# Kept in sync with mcp_server/server.py (the full registered tool surface).
+# Kept in sync with monitoring_aiops/mcp_server/server.py (the full registered tool surface).
 EXPECTED_TOOLS = {
     # swql
     "swql_library", "swql_canned", "swql_query",
@@ -52,9 +52,10 @@ def test_all_modules_import():
         "monitoring_aiops.cli.init", "monitoring_aiops.cli.secret", "monitoring_aiops.cli.swql",
         "monitoring_aiops.cli.alert", "monitoring_aiops.cli.overview",
         "monitoring_aiops.cli.doctor",
-        "mcp_server.server", "mcp_server._shared",
-        "mcp_server.tools.swql", "mcp_server.tools.alerts",
-        "mcp_server.tools.zabbix", "mcp_server.tools.zabbix_write",
+        "monitoring_aiops.mcp_server.server", "monitoring_aiops.mcp_server._shared",
+        "monitoring_aiops.mcp_server.tools.swql", "monitoring_aiops.mcp_server.tools.alerts",
+        "monitoring_aiops.mcp_server.tools.zabbix",
+        "monitoring_aiops.mcp_server.tools.zabbix_write",
     ):
         importlib.import_module(name)
 
@@ -102,7 +103,7 @@ def test_cli_leaf_help_triggers_lazy_imports():
 
 @pytest.mark.unit
 def test_mcp_list_tools_exposes_expected_tools():
-    from mcp_server.server import mcp
+    from monitoring_aiops.mcp_server.server import mcp
 
     tools = asyncio.run(mcp.list_tools())
     names = {t.name for t in tools}
@@ -111,7 +112,7 @@ def test_mcp_list_tools_exposes_expected_tools():
 
 @pytest.mark.unit
 def test_every_mcp_tool_is_governed_by_harness():
-    from mcp_server import _shared
+    from monitoring_aiops.mcp_server import _shared
 
     tool_objs = _shared.mcp._tool_manager._tools
     assert EXPECTED_TOOLS <= set(tool_objs), "tool registry incomplete"
@@ -278,7 +279,7 @@ def test_alert_acknowledge_is_a_write_tier():
     test cross-checks against the [WRITE] tag, so a write marked "low" would
     misrepresent itself in the trail. Keep it above low.
     """
-    from mcp_server.tools import alerts as a
+    from monitoring_aiops.mcp_server.tools import alerts as a
 
     assert a.alert_acknowledge._risk_level == "medium"
 
@@ -294,7 +295,7 @@ def test_risk_level_agrees_with_read_write_docstring_tag():
     16 such mislabels line-wide once, so it is kept even though read-only mode
     (its original motivation) is gone.
     """
-    from mcp_server import server
+    from monitoring_aiops.mcp_server import server
 
     untagged, mismatched = [], []
     for name, tool in server.mcp._tool_manager._tools.items():

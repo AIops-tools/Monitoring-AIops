@@ -8,8 +8,8 @@ monitoring) and ``remove_node`` (deletes the node) — are risk=high with a
 
 from typing import Any, Optional
 
-from mcp_server._shared import _get_connection, mcp, tool_errors
 from monitoring_aiops.governance import governed_tool
+from monitoring_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
 from monitoring_aiops.ops import sw_write as ops
 
 

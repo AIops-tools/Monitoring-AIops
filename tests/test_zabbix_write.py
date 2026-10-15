@@ -84,7 +84,7 @@ def test_create_maintenance_requires_hosts_or_groups():
 @pytest.mark.unit
 def test_create_maintenance_undo_descriptor_deletes_that_id():
     """The undo must be replayable: delete exactly the created maintenance id."""
-    from mcp_server.tools import zabbix_write
+    from monitoring_aiops.mcp_server.tools import zabbix_write
 
     descriptor = zabbix_write._create_maintenance_undo(
         {"name": "patch web01", "minutes": 60},
@@ -139,7 +139,7 @@ def test_delete_maintenance_missing_id_teaches_instead_of_deleting():
 
 @pytest.mark.unit
 def test_zabbix_delete_maintenance_dry_run_previews_without_deleting(monkeypatch):
-    from mcp_server.tools import zabbix_write as gov
+    from monitoring_aiops.mcp_server.tools import zabbix_write as gov
 
     conn = _mock_conn(**{"maintenance.get": [{"maintenanceid": "55", "name": "w"}]})
     monkeypatch.setattr(gov, "_get_connection", lambda target=None: conn)
@@ -151,7 +151,7 @@ def test_zabbix_delete_maintenance_dry_run_previews_without_deleting(monkeypatch
 
 @pytest.mark.unit
 def test_zabbix_write_risk_tiers():
-    from mcp_server.tools import zabbix_write
+    from monitoring_aiops.mcp_server.tools import zabbix_write
 
     assert zabbix_write.zabbix_create_maintenance._risk_level == "medium"
     assert zabbix_write.zabbix_delete_maintenance._risk_level == "high"

@@ -11,8 +11,8 @@ definition is captured into ``priorState`` for the audit trail.
 
 from typing import Any, Optional
 
-from mcp_server._shared import _get_connection, mcp, tool_errors
 from monitoring_aiops.governance import governed_tool
+from monitoring_aiops.mcp_server._shared import _get_connection, mcp, tool_errors
 from monitoring_aiops.ops import zabbix_write as ops
 
 

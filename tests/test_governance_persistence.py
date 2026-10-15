@@ -129,7 +129,7 @@ def test_real_write_tool_persists_priorstate_undo(gov_home, monkeypatch):
     conn = MagicMock(name="conn")
     conn.target.platform = "prtg"
 
-    from mcp_server.tools import prtg_write as gov
+    from monitoring_aiops.mcp_server.tools import prtg_write as gov
 
     monkeypatch.setattr(gov, "_get_connection", lambda target=None: conn)
     result = gov.pause_sensor(object_id="2010", minutes=30, message="patching")

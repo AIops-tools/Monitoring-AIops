@@ -66,7 +66,7 @@ def test_noc_rollup_returns_count_keys_and_is_resilient():
 
 @pytest.mark.unit
 def test_all_tools_risk_low_and_governed():
-    from mcp_server.tools import sw_health
+    from monitoring_aiops.mcp_server.tools import sw_health
 
     tools = [
         sw_health.node_status, sw_health.nodes_list, sw_health.interface_status,

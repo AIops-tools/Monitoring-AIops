@@ -217,7 +217,7 @@ def test_interface_status_without_top_is_never_truncated():
 
 @pytest.mark.unit
 def test_undo_list_envelope_measures_truncation(monkeypatch):
-    from mcp_server.tools import undo as undo_tools
+    from monitoring_aiops.mcp_server.tools import undo as undo_tools
 
     rows = [
         {

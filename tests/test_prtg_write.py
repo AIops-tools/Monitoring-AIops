@@ -32,7 +32,7 @@ def test_schedule_maintenance_rejects_non_positive_minutes():
 
 @pytest.mark.unit
 def test_prtg_write_risk_tiers_all_medium():
-    from mcp_server.tools import prtg_write
+    from monitoring_aiops.mcp_server.tools import prtg_write
 
     assert prtg_write.pause_sensor._risk_level == "medium"
     assert prtg_write.resume_sensor._risk_level == "medium"
@@ -41,7 +41,7 @@ def test_prtg_write_risk_tiers_all_medium():
 
 @pytest.mark.unit
 def test_pause_sensor_undo_descriptor_targets_resume_same_object():
-    from mcp_server.tools import prtg_write
+    from monitoring_aiops.mcp_server.tools import prtg_write
 
     descriptor = prtg_write._pause_undo(
         {"object_id": "2010"}, {"priorState": {"paused": False}}

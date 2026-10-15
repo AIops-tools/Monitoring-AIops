@@ -70,7 +70,7 @@ def test_prtg_alarms_filters_to_status_five():
 
 @pytest.mark.unit
 def test_prtg_tools_are_governed_low_risk():
-    from mcp_server.tools import prtg
+    from monitoring_aiops.mcp_server.tools import prtg
 
     tools = (
         prtg.prtg_sensors, prtg.prtg_sensor_details, prtg.prtg_devices,

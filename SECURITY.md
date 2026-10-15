@@ -73,7 +73,7 @@ SWIS and PRTG API endpoints. No post-install scripts or background services.
 ## Static Analysis
 
 ```bash
-uvx bandit -r monitoring_aiops/ mcp_server/
+uvx bandit -r monitoring_aiops/
 uv run ruff check .
 ```
 
