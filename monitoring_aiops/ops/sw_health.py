@@ -54,6 +54,16 @@ def _num(value: Any) -> float:
         return 0.0
 
 
+def _opt_num(value: Any) -> float | None:
+    """A SWQL numeric cell as float; ``None`` when absent or non-numeric (never 0.0)."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _status_label(value: Any) -> str | None:
     """Map an Orion status code to its label, or None when Orion sent no status.
 
@@ -145,7 +155,12 @@ def interface_status(conn: Any, top: int | None = None) -> dict:
 
 
 def volume_status(conn: Any, min_percent: float = 0) -> dict:
-    """[READ] Volumes at/above min_percent used (Orion.Volumes), worst first."""
+    """[READ] Volumes at/above min_percent used (Orion.Volumes), worst first.
+
+    A volume whose usage Orion did not report is listed in ``unreadableVolumes``
+    (``percentUsed: null``) instead of being treated as 0 % and filtered out — a
+    full volume the poller cannot read must not vanish from a "which are full" report.
+    """
     try:
         raw = conn.swql(_VOLUMES)
     except Exception as exc:  # noqa: BLE001 — report as partial
@@ -153,11 +168,12 @@ def volume_status(conn: Any, min_percent: float = 0) -> dict:
     vols = [{
         "nodeCaption": opt_s(r.get("NodeCaption")),
         "volume": opt_s(r.get("Volume")),
-        "percentUsed": _num(r.get("VolumePercentUsed")),
+        "percentUsed": _opt_num(r.get("VolumePercentUsed")),
     } for r in raw]
-    vols = [v for v in vols if v["percentUsed"] >= min_percent]
+    unreadable = [v for v in vols if v["percentUsed"] is None]
+    vols = [v for v in vols if v["percentUsed"] is not None and v["percentUsed"] >= min_percent]
     vols.sort(key=lambda v: v["percentUsed"], reverse=True)
-    return {"total": len(vols), "volumes": vols}
+    return {"total": len(vols), "volumes": vols, "unreadableVolumes": unreadable}
 
 
 def application_status(conn: Any) -> dict:
@@ -201,8 +217,13 @@ def topn(conn: Any, metric: str = "cpu", n: int = 10) -> dict:
     return {"nodes": nodes, "returned": len(nodes), "metric": metric, "error": None}
 
 
-def _count(conn: Any, where: str, entity: str = "Orion.Nodes") -> int:
-    """Guarded scalar count; 0 if the sub-query fails.
+def _count(
+    conn: Any, where: str, entity: str = "Orion.Nodes", errors: list[str] | None = None
+) -> int | None:
+    """Guarded scalar count; ``None`` (with the reason in ``errors``) if it fails.
+
+    A failed count is never 0: "0 nodes down" from a query that did not run is
+    the most reassuring wrong answer a NOC glance can give.
 
     ``where``/``entity`` are only ever passed internal literals from
     ``noc_rollup`` (never user input), so the f-string SWQL is injection-safe.
@@ -210,28 +231,38 @@ def _count(conn: Any, where: str, entity: str = "Orion.Nodes") -> int:
     try:
         # nosec B608 — where/entity are internal literals (see noc_rollup), not user input
         raw = conn.swql(f"SELECT COUNT(1) AS N FROM {entity} WHERE {where}")  # nosec B608
-    except Exception:  # noqa: BLE001 — each sub-count guarded
-        return 0
+    except Exception as exc:  # noqa: BLE001 — each sub-count guarded, reason kept
+        if errors is not None:
+            errors.append(s(f"{entity} {where}: {exc}", 200))
+        return None
     if not raw:
-        return 0
+        return 0  # COUNT over no matching rows
+    value = raw[0].get("N")
     try:
-        return int(raw[0].get("N") or 0)
+        if value is None or isinstance(value, bool):
+            raise ValueError("no numeric count")
+        return int(value)
     except (TypeError, ValueError):
-        return 0
+        # A null count always carries its reason (the docstring's promise).
+        if errors is not None:
+            errors.append(s(f"{entity} {where}: COUNT returned {value!r}", 200))
+        return None
 
 
 def noc_rollup(conn: Any) -> dict:
     """[READ] One-shot NOC glance: down/warning counts + top-3 worst CPU nodes."""
     # Counts first, then topn — the original query order, kept deliberately so
     # the sequence of SWQL calls this issues does not change.
-    down = _count(conn, "Status=2")
-    warning = _count(conn, "Status=3")
-    ifaces_down = _count(conn, "Status=2", "Orion.NPM.Interfaces")
+    count_errors: list[str] = []
+    down = _count(conn, "Status=2", errors=count_errors)
+    warning = _count(conn, "Status=3", errors=count_errors)
+    ifaces_down = _count(conn, "Status=2", "Orion.NPM.Interfaces", errors=count_errors)
     top = topn(conn, "cpu", 3)
     return {
         "nodesDown": down,
         "nodesWarning": warning,
         "interfacesDown": ifaces_down,
+        "countErrors": count_errors,
         # Expose the node list, but carry the probe's error forward so a failed
         # sub-query is never shown as "no hot nodes" in the one-shot glance.
         "topCpu": top["nodes"],

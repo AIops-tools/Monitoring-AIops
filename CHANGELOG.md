@@ -12,6 +12,17 @@
   level is published in `_meta` under `io.github.AIops-tools/riskLevel`. These
   are hints for the client; audit and undo are unchanged.
 
+### Fixed
+- SolarWinds `volume_status`: a volume whose usage Orion did not report was
+  read as 0 % and filtered out of "volumes above X %", so a full volume the
+  poller could not read disappeared from the report. It is now listed in
+  `unreadableVolumes` with `percentUsed: null`. The capabilities table also no
+  longer claims size/used/type fields the query never returned.
+- SolarWinds `noc_rollup`: a count query that failed reported `0` (for example
+  "0 nodes down" while SWIS was unreachable). Failed counts are now `null` with
+  the reason in `countErrors`. An existing test asserted the old behaviour and
+  has been corrected.
+
 ## v0.10.4 — 2026-09-17
 
 ### Fixed

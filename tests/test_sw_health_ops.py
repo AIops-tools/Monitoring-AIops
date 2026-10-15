@@ -171,3 +171,69 @@ def test_noc_rollup_issues_guarded_subcounts():
     # interfacesDown count runs against the Interfaces entity.
     iface_query = conn.swql.call_args_list[2].args[0]
     assert "Orion.NPM.Interfaces" in iface_query
+
+
+@pytest.mark.unit
+def test_volume_with_unreadable_usage_is_kept_aside_not_dropped():
+    from monitoring_aiops.ops import sw_health as ops
+
+    conn = _conn([
+        {"NodeCaption": "n", "Volume": "D", "VolumePercentUsed": 95},
+        {"NodeCaption": "n", "Volume": "X", "VolumePercentUsed": None},
+        {"NodeCaption": "n", "Volume": "Y"},
+    ])
+    out = ops.volume_status(conn, min_percent=90)
+    assert [v["volume"] for v in out["volumes"]] == ["D"]
+    assert sorted(v["volume"] for v in out["unreadableVolumes"]) == ["X", "Y"]
+    assert all(v["percentUsed"] is None for v in out["unreadableVolumes"])
+    assert out["total"] == 1
+
+
+@pytest.mark.unit
+def test_measured_zero_percent_is_a_real_reading():
+    from monitoring_aiops.ops import sw_health as ops
+
+    out = ops.volume_status(_conn([{"NodeCaption": "n", "Volume": "Z", "VolumePercentUsed": 0}]))
+    assert [v["percentUsed"] for v in out["volumes"]] == [0.0]
+    assert out["unreadableVolumes"] == []
+
+
+@pytest.mark.unit
+def test_noc_rollup_failed_count_is_null_not_zero_down():
+    from monitoring_aiops.ops import sw_health as ops
+
+    conn = MagicMock(name="conn")
+
+    def swql(q):
+        if "Orion.NPM.Interfaces" in q:
+            raise RuntimeError("SWIS 403")
+        if "COUNT" in q:
+            return [{"N": 0}]
+        return []
+
+    conn.swql.side_effect = swql
+    out = ops.noc_rollup(conn)
+    assert out["nodesDown"] == 0  # measured
+    assert out["interfacesDown"] is None  # not measured
+    assert any("403" in e for e in out["countErrors"])
+
+
+@pytest.mark.unit
+def test_non_numeric_usage_is_unreadable_not_zero():
+    from monitoring_aiops.ops import sw_health as ops
+
+    row = {"NodeCaption": "n", "Volume": "Q", "VolumePercentUsed": "n/a"}
+    out = ops.volume_status(_conn([row]))
+    assert out["volumes"] == []
+    assert [v["volume"] for v in out["unreadableVolumes"]] == ["Q"]
+
+
+@pytest.mark.unit
+def test_count_row_without_a_value_is_null():
+    from monitoring_aiops.ops import sw_health as ops
+
+    conn = MagicMock(name="conn")
+    conn.swql.side_effect = lambda q: [{"N": None}] if "COUNT" in q else []
+    out = ops.noc_rollup(conn)
+    assert out["nodesDown"] is None
+    assert len(out["countErrors"]) == 3  # every null count says why

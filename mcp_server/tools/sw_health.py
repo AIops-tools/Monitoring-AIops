@@ -56,6 +56,9 @@ def interface_status(top: Optional[int] = None, target: Optional[str] = None) ->
 def volume_status(min_percent: float = 0, target: Optional[str] = None) -> dict:
     """[READ] Volumes at/above a fill threshold (Orion.Volumes), worst first.
 
+    Volumes whose usage Orion did not report are returned separately in
+    ``unreadableVolumes`` (``percentUsed: null``) — they are unmeasured, not empty.
+
     Args:
         min_percent: Minimum percent-used to include (default 0 = all).
         target: SolarWinds target name from config; omit for the default.
@@ -98,6 +101,9 @@ def topn(metric: str = "cpu", n: int = 10, target: Optional[str] = None) -> dict
 @tool_errors("dict")
 def noc_rollup(target: Optional[str] = None) -> dict:
     """[READ] One-shot NOC glance: down/warning counts + top-3 worst CPU nodes.
+
+    A count that could not be queried is ``null`` with the reason in
+    ``countErrors`` — never report a null count as "0 down".
 
     Args:
         target: SolarWinds target name from config; omit for the default.

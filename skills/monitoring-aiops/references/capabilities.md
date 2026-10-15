@@ -30,10 +30,10 @@
 | `node_status` | `Orion.Nodes` | one node's status, CPU/mem, response time |
 | `nodes_list` | `Orion.Nodes` | node inventory (status, vendor, IP, last boot) |
 | `interface_status` | `Orion.NPM.Interfaces` | top-N interfaces by utilisation (in/out, errors, oper status) |
-| `volume_status` | `Orion.Volumes` | volumes by % used (size, used, type) |
+| `volume_status` | `Orion.Volumes` | volumes by % used (node, volume, percentUsed), worst first; unreported usage listed in `unreadableVolumes` with `percentUsed: null` |
 | `application_status` | `Orion.APM.Application` (SAM) | SAM application/component status |
 | `topn` | `Orion.Nodes` metrics | top-N nodes by `cpu` / `memory` / `latency` / `packetloss` |
-| `noc_rollup` | folds `Orion.Nodes` | down/warning counts + worst-CPU nodes in one call |
+| `noc_rollup` | folds `Orion.Nodes` | down/warning counts + worst-CPU nodes in one call; a failed count is `null` with the reason in `countErrors` |
 
 ## SolarWinds writes
 

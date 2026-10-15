@@ -53,12 +53,15 @@ def test_noc_rollup_returns_count_keys_and_is_resilient():
     conn.swql.side_effect = RuntimeError("SWIS unavailable")
     out = ops.noc_rollup(conn)
     assert set(out) == {
-        "nodesDown", "nodesWarning", "interfacesDown", "topCpu", "topCpuError",
+        "nodesDown", "nodesWarning", "interfacesDown", "countErrors", "topCpu", "topCpuError",
     }
-    assert out["nodesDown"] == 0
-    assert out["nodesWarning"] == 0
-    assert out["interfacesDown"] == 0
+    # SWIS was down: nothing was counted, so nothing may read as "0 down".
+    assert out["nodesDown"] is None
+    assert out["nodesWarning"] is None
+    assert out["interfacesDown"] is None
+    assert len(out["countErrors"]) == 3
     assert out["topCpu"] == []
+    assert out["topCpuError"]
 
 
 @pytest.mark.unit
