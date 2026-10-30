@@ -8,7 +8,8 @@ monitoring servers, so the maturity claim is auditable rather than a vibe.
 - `doctor` against a live server, including the API-token validity probe.
 - All six Zabbix read tools returned well-shaped data: `problems`, `hosts`,
   `hostgroups`, `triggers`, `events` (with truncation envelope), `maintenances`.
-  These fetch everything the API returns, so their `total` is a true count.
+  The unbounded reads count the rows returned by the API; `events` reports
+  measured truncation when its explicit limit is reached.
 - Governance loop end-to-end: `zabbix_create_maintenance` really created a
   maintenance window (confirmed via `maintenance.get`), and `undo_apply` deleted
   it — all three calls landed audit rows.
@@ -51,6 +52,37 @@ optional `scheme:`.
     (`EntityCaption`) and PRTG (`device`). Now resolved to the host name through
     one batched `event.get`; `problem.get` cannot do it (it rejects
     `selectHosts` outright — measured, not assumed).
-  - Still open at **fleet** scale: Zabbix applies a server-side `search_limit`
-    (default 1000) that the reads do not detect, so on a large install a `total`
-    could silently be the capped value. Three hosts cannot exercise that.
+  - **Corrected 2026-10-30:** the earlier fleet-scale warning attributed a
+    1000-row API cap to Zabbix `search_limit` without evidence. In the official
+    7.0.29 implementation, `problem.get` and `host.get` default `limit` to
+    `null` and pass that value to `DBselect`; the other read services used here
+    likewise default to `null`. `search_limit` is a frontend search/filter
+    setting, not an implicit cap in these API methods. Sources:
+    [CProblem.php](https://github.com/zabbix/zabbix/blob/7.0.29/ui/include/classes/api/services/CProblem.php),
+    [CHost.php](https://github.com/zabbix/zabbix/blob/7.0.29/ui/include/classes/api/services/CHost.php),
+    [Zabbix API `problem.get`](https://www.zabbix.com/documentation/7.0/en/manual/api/reference/problem/get),
+    and [frontend GUI settings](https://www.zabbix.com/documentation/7.0/en/manual/web_interface/frontend_sections/administration/general).
+    A live fleet with more than 1000 rows has still not been exercised; memory
+    use and response time at that scale remain unmeasured. `events` and item
+    history use explicit `limit + 1` probes and report truncation separately.
+
+## MCP protocol compatibility — local stdio (2026-10-30)
+
+- With Python MCP SDK 2.0.0, the real `monitoring-aiops-mcp` process completed
+  legacy `initialize` (2025-11-25) and modern `server/discover` (2026-07-28).
+  Both paths listed all 42 tools with the expected `undo_list` read-only hint
+  and `zabbix_problems` risk metadata; `undo_list` returned a successful result.
+- The same wire test exposed a protocol error: a missing Zabbix config produced
+  a sanitized `{"error": ...}` result and an `error` audit row, while MCP
+  marked the call `isError: false`. The server now marks such tool results
+  `isError: true` **after** the governance wrapper records the failure. The
+  legacy and modern stdio regression tests pass. This matches the
+  [MCP 2026-07-28 tools specification](https://modelcontextprotocol.io/specification/2026-07-28/server/tools)
+  for tool execution failures.
+- This is a local transport and missing-config test. No live SolarWinds, PRTG,
+  or Zabbix server was contacted in this protocol check; HTTP transport and
+  client-specific behavior were not tested.
+
+## Governance hardening — local synthetic verification (2026-10-30)
+
+The shared governance tests exercise a durable `pending` row before a write, refusal when the audit DB cannot persist that row, a visible pending row after finalization failure, explicit reconciliation to `unknown`, async/preview parity, result minimization, and metadata-only telemetry with `AIOPS_WORKFLOW_ID`. The tests use a temporary SQLite DB and synthetic tools; they do not claim a new live upstream write was performed. Existing audit rows and rotated archives from earlier releases are not automatically scrubbed. A pending intent from another process is never auto-reconciled. On POSIX the rotation/intent lock spans processes; on Windows it currently protects only threads in this process.

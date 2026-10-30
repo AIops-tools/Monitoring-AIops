@@ -13,6 +13,7 @@ older mcp/pydantic eval'd the union to ``types.UnionType`` and crashed the
 """
 
 import functools
+import json
 import logging
 import os
 from collections.abc import Callable
@@ -21,6 +22,7 @@ from typing import Any, Optional
 
 import httpx
 from mcp.server import MCPServer
+from mcp.types import CallToolResult, TextContent
 
 from monitoring_aiops import __version__
 from monitoring_aiops.config import load_config
@@ -105,7 +107,36 @@ def tool_errors(shape: str = "dict") -> Callable:
     return decorator
 
 
-mcp = MCPServer(
+class MonitoringMCPServer(MCPServer):
+    """Carry governed tool failures into MCP's execution-error flag.
+
+    The inner error wrapper returns a sanitized dict so the governance layer
+    can audit the failure. MCPServer otherwise serializes that dict as a
+    successful result. Mark it after the governance layer has finished, while
+    leaving the registered function and the CLI/undo path untouched.
+    """
+
+    async def call_tool(self, name: str, arguments: dict, context: Any = None) -> Any:
+        result = await super().call_tool(name, arguments, context)
+        if not isinstance(result, CallToolResult) or result.is_error:
+            return result
+
+        payload = result.structured_content
+        if (
+            payload is None
+            and len(result.content) == 1
+            and isinstance(result.content[0], TextContent)
+        ):
+            try:
+                payload = json.loads(result.content[0].text)
+            except (TypeError, ValueError):
+                pass
+        if isinstance(payload, dict) and payload.get("error"):
+            result.is_error = True
+        return result
+
+
+mcp = MonitoringMCPServer(
     "monitoring-aiops",
     version=__version__,
     instructions=(

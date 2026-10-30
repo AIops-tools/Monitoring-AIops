@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.13.0 — 2026-10-30
+
+### Security and observability (BREAKING)
+- **BREAKING:** Writes now require a durable audit intent before contacting the upstream platform. If the audit database cannot accept the intent, the write fails closed; a failed final audit update leaves an unresolved `pending` intent.
+- Real writes now commit a durable `pending` audit intent before the upstream call. If audit storage is unavailable, the write does not start; a failed final update leaves a visible pending intent and blocks further writes in that process.
+- Audit rows retain outcome metadata instead of full business responses. `AIOPS_WORKFLOW_ID` links calls across a workflow; optional `AIOPS_TELEMETRY=1` emits metadata-only JSON events and `AuditEngine.health()` reports audit failures and pending intents.
+
+
+### Fixed
+- MCP tool responses carrying a sanitized `error` now set `isError: true` for
+  both legacy initialization and 2026-07-28 discovery. The governance audit
+  still records the underlying failure before the MCP response is serialized.
+- The Zabbix verification record no longer treats the frontend `search_limit`
+  as an implicit 1000-row API cap; official 7.0.29 service source defaults
+  these reads to an unlimited `limit`.
+
 ## v0.12.0 — 2026-10-15
 
 ### Fixed
