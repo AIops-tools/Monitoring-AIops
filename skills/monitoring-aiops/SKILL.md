@@ -1,7 +1,7 @@
 ---
 name: monitoring-aiops
 slug: monitoring-aiops
-displayName: "Monitoring AIops"
+displayName: "SolarWinds / PRTG / Zabbix Operations"
 summary: "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools."
 license: MIT
 homepage: https://github.com/AIops-tools/Monitoring-AIops

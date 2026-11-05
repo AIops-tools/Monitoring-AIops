@@ -1,6 +1,6 @@
 {
   "id": "monitoring-aiops",
-  "name": "Monitoring AIops",
+  "name": "SolarWinds / PRTG / Zabbix Operations",
   "description": "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools.",
   "skills": [
     "./skills"

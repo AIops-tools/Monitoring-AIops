@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.AIops-tools/monitoring-aiops",
-  "title": "Monitoring AIops",
+  "title": "SolarWinds / PRTG / Zabbix Operations",
   "description": "Governed SolarWinds Orion + PRTG + Zabbix ops: SWQL, alert rollup, health, 42 tools.",
   "repository": {
     "url": "https://github.com/AIops-tools/Monitoring-AIops",
