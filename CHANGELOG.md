@@ -1,8 +1,9 @@
 # Changelog
 
-## v0.13.1 — 2026-11-06
+## v0.13.1 — 2026-11-14
 
 - Clarified the searchable display name to identify the supported products. Install IDs and API behavior are unchanged.
+- Clarify PRTG group inventory selection and result fields in the MCP tool description.
 
 ## v0.13.0 — 2026-10-30
 

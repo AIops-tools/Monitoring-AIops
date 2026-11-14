@@ -51,6 +51,10 @@ def prtg_devices(target: Optional[str] = None) -> dict:
 def prtg_groups(target: Optional[str] = None) -> dict:
     """[READ] List PRTG device groups with their rollup status.
 
+    Use for group-level inventory and status; use PRTG device or sensor tools
+    when investigating a specific object. Returns ``total`` and ``groups``
+    (each with ``objid``, ``group`` and ``status``), or an explicit ``error``.
+
     Args:
         target: PRTG target name from config; omit for the default.
     """
